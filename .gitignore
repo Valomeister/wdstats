@@ -1,0 +1,9 @@
+.venv/
+.idea/
+logs/
+
+__pycache__/
+.env
+
+# for local experiments
+tmp.py

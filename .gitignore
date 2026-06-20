@@ -1,6 +1,8 @@
 .venv/
 .idea/
 logs/
+images/
+fonts/
 
 __pycache__/
 .env

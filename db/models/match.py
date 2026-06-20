@@ -17,7 +17,7 @@ class Match(Base):
     game_map: Mapped[str] = mapped_column(String(32))
     result: Mapped[int]
     game_type: Mapped[str] = mapped_column(String(32))
+    unique_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
 
     players: Mapped[List['MatchPlayer']] = relationship(back_populates='match')
-

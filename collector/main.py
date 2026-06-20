@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -17,6 +18,7 @@ async def main():
         collect_all_accounts,
         trigger="interval",
         minutes=20,
+        next_run_time=datetime.now()
     )
 
     scheduler.start()

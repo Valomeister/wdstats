@@ -6,4 +6,4 @@ __pycache__/
 .env
 
 # for local experiments
-tmp.py
+tmp*.py

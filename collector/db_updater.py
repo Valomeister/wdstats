@@ -29,6 +29,7 @@ async def update_db(parsed_battlelog, request_tag):
                             "game_map": battle['game_map'],
                             "result": battle['result'],
                             "game_type": battle['game_type'],
+                            "star_player": battle['star_player'],
                             "unique_hash": battle['unique_hash']
                         }
                         for battle in parsed_battlelog

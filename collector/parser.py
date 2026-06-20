@@ -26,6 +26,11 @@ def parse_battlelog(raw_json, request_tag):
             teams = battle['teams']
             teams_tags = [[player['tag'] for player in team] for t, team in enumerate(teams)]
             current_team_idx = 0 if request_tag in teams_tags[0] else 1
+            star_player_obj = battle.get('starPlayer', None)
+            if star_player_obj is None:
+                star_player = None
+            else:
+                star_player = star_player_obj.get('tag')
 
             cur_game = {
                 'match_time': item['battleTime'],
@@ -33,13 +38,15 @@ def parse_battlelog(raw_json, request_tag):
                 'game_mode': item['event']['mode'],
                 'game_map': item['event']['map'],
                 'game_type': battle['type'],
+                'star_player': star_player,
                 'result': RESULT_CODES[battle['result']],
                 'players': []
             }
 
+            non_nullable_fields = ['match_time', 'game_dt', 'game_mode', 'game_map', 'game_type', 'result']
             missing = [
-                key for key, value in cur_game.items()
-                if value is None
+                key for key in non_nullable_fields
+                if cur_game[key] is None
             ]
 
             if missing:

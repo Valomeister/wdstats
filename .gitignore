@@ -1,7 +1,7 @@
 .venv/
 .idea/
 logs/
-images/
+services/image/
 fonts/
 
 __pycache__/

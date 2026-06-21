@@ -1,0 +1,330 @@
+import time
+from collections import defaultdict
+
+from PIL import Image, ImageDraw, ImageFont
+
+import asyncio
+
+from db.session import SessionLocal
+from repositories.stats_repository import StatsRepository
+
+from services.image_generation.config import lp, nickname_font, stats_font, bar_font, gamemodes_colors
+from services.image_generation.db_utils import fetch_data_for_main_ranked, fetch_data_for_ranked_by_modes, \
+    REQUIRED_MODES
+from image_utils import (
+    load_brawler_icons,
+    load_ranked_ranks,
+    load_game_mode_icons,
+    normalize_name,
+    get_text_bbox,
+    draw_text_centered,
+    draw_bar, paste_image_with_border,
+)
+
+def get_template(ranked_stats, player_nickname):
+    total_games, wins, draws, losses = ranked_stats
+
+    profile_icon = Image.open('images/profile_icon_placeholder.jpg')
+    canvas_copy = CANVAS.copy()
+    canvas_copy.paste(profile_icon, (lp.margin, lp.margin))
+
+    draw = ImageDraw.Draw(canvas_copy)
+
+    # nickname
+    draw_text_centered(
+        draw,
+        [
+            lp.margin + profile_icon.width + lp.margin,
+            lp.margin,
+            lp.margin + profile_icon.width + lp.margin,
+            lp.margin + profile_icon.height
+        ],
+        player_nickname,
+        nickname_font,
+        4,
+        center_x=False,
+        center_y=True
+    )
+
+    # total
+    total_games_text = f'{total_games} ranked games'
+    total_games_text_x = lp.margin
+    total_games_text_y = lp.margin + profile_icon.height + lp.margin
+    total_games_text_bbox = get_text_bbox(draw, total_games_text, stats_font)
+    draw.text(
+        (total_games_text_x, total_games_text_y),
+        total_games_text,
+        fill="white",
+        font=stats_font,
+        stroke_width=4,
+        stroke_fill="black"
+    )
+
+    # total bar
+    total_bar_x = lp.margin
+    total_bar_y = total_games_text_y + total_games_text_bbox[3] + lp.margin
+    draw_bar(draw, (total_bar_x, total_bar_y), total_games, wins, draws, losses, bar_font)
+
+    return canvas_copy, draw
+
+async def gen_main_ranked_img(ranked_stats, ranked_stats_by_ranks, top_ranked_brawlers, player_nickname):
+    total_games, wins, draws, losses = ranked_stats
+    per_rank_dict = {i[0]: i[1:] for i in ranked_stats_by_ranks}
+    print(ranked_stats_by_ranks)
+    print(total_games, wins, draws, losses)
+    print(top_ranked_brawlers)
+
+    canvas, draw = get_template(ranked_stats, player_nickname)
+
+    # blur bg
+    canvas.paste(DARK_BG, (0, int(lp.screen_height / 2)), DARK_BG)
+
+    # ranks
+    offset_top = lp.screen_height / 2
+    offset_left = lp.margin
+    available_width = (lp.screen_width - lp.margin * 2 - lp.margin * 3)
+    available_height = lp.screen_height / 2 - 3 * lp.margin
+    group_height = available_height / 2
+    item_height = group_height / 3
+    for i in RANK_ICONS:
+        group_number = (i - 1) // 3
+        position_in_group = (i - 1) % 3
+        row_number = group_number // 4
+        position_in_row = group_number % 4
+        group_start_x = offset_left + (available_width / 4 + lp.margin) * position_in_row
+        group_end_x = group_start_x + available_width / 4
+
+        center_y = int(
+            + offset_top
+            + (available_height / 2) * row_number
+            + lp.margin * (row_number + 1)
+            + item_height * position_in_group
+            + item_height / 2
+        )
+        center_x = int(
+            + offset_left
+            + (available_width / 4 + lp.margin) * position_in_row
+            + item_height / 2
+        )
+
+        icon_start_x = int(center_x - RANK_ICONS[i].width / 2)
+        icon_start_y = int(center_y - RANK_ICONS[i].height / 2)
+        canvas.paste(RANK_ICONS[i], (icon_start_x, icon_start_y), RANK_ICONS[i])
+
+        cur_rank_stats = per_rank_dict.get(i, [0, 0, 0, 0])
+        rank_bar_start_x = group_end_x - lp.bar_width
+        rank_bar_start_y = int(center_y - lp.bar_height / 2)
+        draw_bar(draw, (rank_bar_start_x, rank_bar_start_y), *cur_rank_stats, bar_font)
+
+        # draw.circle((center_x, center_y), radius=5, fill="white", outline="black", width=3)
+        # draw.circle(((group_start_x + group_end_x - lp.bar_width) / 2, center_y), radius=5, fill="white", outline="black", width=3)
+        # draw.circle((
+        #     group_start_x,
+        #     center_y
+        # ), radius=5, fill="red", outline="black", width=3)
+        # draw.circle((
+        #     group_end_x,
+        #     center_y
+        # ), radius=5, fill="red", outline="black", width=3)
+
+    # top brawlers
+    placeholder_icon = BRAWLER_ICONS['placeholder']
+    num_brawlers = len(top_ranked_brawlers)
+    offset_top = (lp.screen_height / 2 - num_brawlers * lp.brawler_icons_height - (num_brawlers - 1) * lp.brawlers_gap) / 2
+    for i in range(len(top_ranked_brawlers)):
+        center_x = lp.screen_width - lp.margin - lp.bar_width - lp.brawlers_gap - lp.brawler_icons_height / 2
+        center_y = (
+            + offset_top
+            + (lp.brawler_icons_height + lp.brawlers_gap) * i
+            + 0.5 * lp.brawler_icons_height
+        )
+
+        cur_brawler_stats = top_ranked_brawlers[i][1:]
+        rank_bar_start_x = center_x + lp.brawlers_gap + lp.brawler_icons_height / 2
+        rank_bar_start_y = int(center_y - lp.bar_height / 2)
+        draw_bar(draw, (rank_bar_start_x, rank_bar_start_y), *cur_brawler_stats, bar_font)
+
+        normalized_name = normalize_name(top_ranked_brawlers[i][0])
+        cur_brawler_icon = BRAWLER_ICONS.get(normalized_name, placeholder_icon)
+        icon_start_x = int(center_x - lp.brawler_icons_height / 2)
+        icon_start_y = int(center_y - lp.brawler_icons_height / 2)
+        paste_image_with_border(canvas, draw, (icon_start_x, icon_start_y), cur_brawler_icon, 4)
+
+        cur_position = f'#{i + 1}'
+        position_end_x = center_x - lp.brawler_icons_height / 2 - lp.brawlers_gap
+        position_start_x = position_end_x - 50
+        draw_text_centered(draw, (position_start_x, center_y, position_end_x, center_y), cur_position, stats_font, 4)
+
+        # draw.circle((center_x, center_y - lp.brawler_icons_height / 2), radius=5, fill="red", outline="black", width=3)
+        # draw.circle((rank_bar_start_x, center_y), radius=5, fill="white", outline="black", width=3)
+        # draw.circle((center_x, center_y + lp.brawler_icons_height / 2), radius=5, fill="red", outline="black", width=3)
+        # draw.circle((position_end_x, center_y), radius=5, fill="white", outline="black", width=3)
+
+    canvas.show()
+
+async def gen_ranked_img_by_modes(ranked_stats, ranked_stats_by_modes, top_ranked_brawlers_by_modes, player_nickname):
+    total_games, wins, draws, losses = ranked_stats
+
+    print(ranked_stats_by_modes)
+    print(total_games, wins, draws, losses)
+    print(top_ranked_brawlers_by_modes)
+
+    canvas, draw = get_template(ranked_stats, player_nickname)
+
+
+    cards_inner_horizontal_margin = 20
+    cards_outer_margin = 20
+    modes_card_width = lp.bar_width + lp.mode_icons_height * 2 + 4 * cards_inner_horizontal_margin
+    modes_card_height = (lp.screen_height - 2 * lp.margin - 2 * cards_outer_margin) / 3
+    modes_area_width = 2 * modes_card_width + 2 * lp.margin + cards_outer_margin
+    modes_offset_x = lp.screen_width - modes_area_width
+    card_row_height = modes_card_height / 4
+    for i in range(6):
+        row = i // 2
+        col = i % 2
+        center_x = (
+            + modes_offset_x
+            + lp.margin
+            + col * (modes_card_width + cards_outer_margin)
+            + modes_card_width / 2
+        )
+        center_y = (
+            + lp.margin
+            + row * (modes_card_height + cards_outer_margin)
+            + modes_card_height / 2
+        )
+        card_start_x = center_x - modes_card_width / 2
+        card_start_y = center_y - modes_card_height / 2
+        card_end_x = center_x + modes_card_width / 2
+        card_end_y = center_y + modes_card_height / 2
+
+        game_mode = sorted(REQUIRED_MODES)[i]
+        game_mode_color = gamemodes_colors[game_mode]
+
+        draw.rounded_rectangle(
+            (card_start_x, card_start_y, card_end_x, card_start_y + card_row_height),
+            radius=20,
+            fill='black',
+            corners=(True, True, False, False)
+        )
+        draw.rounded_rectangle(
+            (card_start_x, card_start_y + card_row_height, card_end_x, card_end_y + 3),
+            radius=20,
+            fill=game_mode_color,
+            corners=(False, False, True, True)
+        )
+        draw.rounded_rectangle(
+            (card_start_x, card_start_y, card_end_x, card_end_y + 3),
+            radius=20,
+            width=5,
+            outline='black'
+        )
+
+        # game_mode bar
+        bar_start_x = card_end_x - cards_inner_horizontal_margin - lp.bar_width
+        bar_center_y = card_start_y + card_row_height / 2
+        bar_start_y = bar_center_y - lp.bar_height / 2
+        mode_stats = ranked_stats_by_modes[game_mode]
+        draw_bar(draw, (bar_start_x, bar_start_y), *mode_stats, bar_font)
+
+        # game_mode icon
+        normalized_mode_name = normalize_name(game_mode)
+        game_mode_icon = GAME_MODE_ICONS[normalized_mode_name]
+        mode_icon_start_x = int(card_start_x + cards_inner_horizontal_margin)
+        mode_icon_center_y = card_start_y + card_row_height / 2
+        mode_icon_start_y = int(mode_icon_center_y - lp.mode_icons_height / 2)
+        canvas.paste(game_mode_icon, (mode_icon_start_x, mode_icon_start_y), game_mode_icon)
+
+        # top-3 brawlers
+        for j in range(3):
+            # position (#1 / #2 / #2)
+            position_start_x = int(card_start_x + cards_inner_horizontal_margin)
+            position_center_y = card_start_y + card_row_height / 2 + card_row_height * (j + 1)
+            position_start_y = position_center_y - lp.mode_icons_height / 2
+            position_end_x = position_start_x + lp.mode_icons_height
+            position_end_y = position_start_y + lp.mode_icons_height
+            draw_text_centered(
+                draw,
+                (position_start_x, position_start_y, position_end_x, position_end_y),
+                f'#{j + 1}',
+                stats_font,
+                4
+            )
+            # draw.circle((position_start_x, position_start_y), radius=5, fill="pink", outline="black", width=3)
+            # draw.circle((position_end_x, position_end_y), radius=5, fill="pink", outline="black", width=3)
+
+            # brawler
+            placeholder_icon = SMALLER_BRAWLER_ICONS['placeholder']
+            normalized_brawler_name = normalize_name(top_ranked_brawlers_by_modes[game_mode][j][0])
+            brawler_icon = SMALLER_BRAWLER_ICONS.get(normalized_brawler_name, placeholder_icon)
+            brawler_start_x = int(card_start_x + cards_inner_horizontal_margin + lp.mode_icons_height + cards_inner_horizontal_margin)
+            brawler_center_y = card_start_y + card_row_height / 2 + card_row_height * (j + 1)
+            brawler_start_y = int(brawler_center_y - lp.mode_icons_height / 2)
+            brawler_end_x = brawler_start_x + lp.mode_icons_height
+            brawler_end_y = brawler_start_y + lp.mode_icons_height
+            paste_image_with_border(canvas, draw, (brawler_start_x, brawler_start_y), brawler_icon, 5)
+
+
+            # draw.circle((brawler_start_x, brawler_start_y), radius=5, fill="pink", outline="black", width=3)
+            # draw.circle((brawler_end_x, brawler_end_y), radius=5, fill="pink", outline="black", width=3)
+
+            # bar
+            brawler_bar_start_x = card_end_x - cards_inner_horizontal_margin - lp.bar_width
+            brawler_bar_center_y = card_start_y + card_row_height / 2 + card_row_height * (j + 1)
+            brawler_bar_start_y = brawler_bar_center_y - lp.bar_height / 2
+            mode_stats = top_ranked_brawlers_by_modes[game_mode][j][1:-1]
+            draw_bar(draw, (brawler_bar_start_x, brawler_bar_start_y), *mode_stats, bar_font)
+        #
+        # draw.circle((bar_start_x, bar_center_y), radius=5, fill="pink", outline="black", width=3)
+        # draw.circle((mode_icon_start_x, mode_icon_center_y), radius=5, fill="pink", outline="black", width=3)
+        #
+        # draw.circle((center_x, center_y), radius=5, fill="white", outline="black", width=3)
+        #
+        # draw.circle((center_x, card_start_y + card_row_height * 0), radius=5, fill="green", outline="black", width=3)
+        # draw.circle((center_x, card_start_y + card_row_height * 1), radius=5, fill="green", outline="black", width=3)
+        # draw.circle((center_x, card_start_y + card_row_height * 2), radius=5, fill="green", outline="black", width=3)
+        # draw.circle((center_x, card_start_y + card_row_height * 3), radius=5, fill="green", outline="black", width=3)
+        # draw.circle((center_x, card_start_y + card_row_height * 4), radius=5, fill="green", outline="black", width=3)
+        #
+        # draw.circle((card_start_x, card_start_y), radius=5, fill="red", outline="black", width=3)
+        # draw.circle((card_end_x, card_start_y), radius=5, fill="red", outline="black", width=3)
+        # draw.circle((card_start_x, card_end_y), radius=5, fill="red", outline="black", width=3)
+        # draw.circle((card_end_x, card_end_y), radius=5, fill="red", outline="black", width=3)
+
+
+    canvas.show()
+
+async def create_main_ranked_img(tag, player_nickname):
+    ranked_stats, ranked_stats_by_ranks, top_ranked_brawlers = await(fetch_data_for_main_ranked(tag))
+    await gen_main_ranked_img(ranked_stats, ranked_stats_by_ranks, top_ranked_brawlers, player_nickname)
+
+async def create_ranked_img_by_modes(tag, player_nickname):
+    ranked_stats, ranked_stats_by_modes, top_ranked_brawlers_by_modes = await(fetch_data_for_ranked_by_modes(tag))
+    await gen_ranked_img_by_modes(ranked_stats, ranked_stats_by_modes, top_ranked_brawlers_by_modes, player_nickname)
+
+async def main():
+    # tag = '#9JQ888Y8U'
+    tag = '#VC9QCRUYC'
+    player_nickname = 'HMB|ℝĭ̈𝘤𝓴ꪗツ'
+
+    start = time.time()
+    await asyncio.gather(
+        # create_main_ranked_img(tag, player_nickname),
+        create_ranked_img_by_modes(tag, player_nickname),
+    )
+    print(time.time() - start)
+
+CANVAS = Image.open('images/bg.jpg')
+BRAWLER_ICONS = load_brawler_icons('images/brawler_icons')
+SMALLER_BRAWLER_ICONS = {
+    brawler: img.resize((lp.mode_icons_height, lp.mode_icons_height))
+    for brawler, img in BRAWLER_ICONS.items()
+}
+RANK_ICONS = load_ranked_ranks('images/ranked_ranks/', height=lp.ranked_icons_height)
+GAME_MODE_ICONS = load_game_mode_icons('images/mode_icons')
+DARK_BG = Image.open('images/dark_rect.png').convert('RGBA')
+alpha = DARK_BG.getchannel('A')
+alpha = alpha.point(lambda p: p * 0.7)
+DARK_BG.putalpha(alpha)
+
+asyncio.run(main())

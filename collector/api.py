@@ -21,6 +21,12 @@ class BrawlAPI:
         async with self.session.get(url) as response:
             return response.status, await response.json()
 
+    async def get_profile(self, tag):
+        url = f'https://api.brawlstars.com/v1/players/{tag.replace("#", "%23")}'
+
+        async with self.session.get(url) as response:
+            return response.status, await response.json()
+
     async def close(self):
         await self.session.close()
 

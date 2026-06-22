@@ -16,10 +16,10 @@ async def get_ranked_stats_by_ranks(tag):
         repo = StatsRepository(session)
         return await repo.get_ranked_stats_by_ranks(tag)
 
-async def get_top_ranked_brawlers(tag):
+async def get_top_ranked_brawlers(tag, lim):
     async with SessionLocal() as session:
         repo = StatsRepository(session)
-        return await repo.get_top_ranked_brawlers(tag, lim=5)
+        return await repo.get_top_ranked_brawlers(tag, lim=lim)
 
 async def get_ranked_stats_by_modes(tag):
     async with SessionLocal() as session:
@@ -62,7 +62,7 @@ async def fetch_data_for_main_ranked(tag):
     ranked_stats, ranked_stats_by_ranks, top_ranked_brawlers = await asyncio.gather(
         get_ranked_stats(tag),
         get_ranked_stats_by_ranks(tag),
-        get_top_ranked_brawlers(tag),
+        get_top_ranked_brawlers(tag, lim=5),
     )
 
     return ranked_stats, ranked_stats_by_ranks, top_ranked_brawlers
@@ -75,3 +75,11 @@ async def fetch_data_for_ranked_by_modes(tag):
     )
 
     return ranked_stats, ranked_stats_by_modes, top_ranked_brawlers_by_modes
+
+async def fetch_data_for_ranked_by_brawlers(tag):
+    ranked_stats, top_ranked_brawlers = await asyncio.gather(
+        get_ranked_stats(tag),
+        get_top_ranked_brawlers(tag, lim=1000), # arbitrary lim grater than the amount of brawlers
+    )
+
+    return ranked_stats, top_ranked_brawlers

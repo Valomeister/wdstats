@@ -7,18 +7,28 @@ class DotDict(dict):
     __delattr__ = dict.__delitem__
 
 nickname_font = ImageFont.truetype(
-    "fonts/Inter_18pt-Bold.ttf",
+    "services/image_generation/fonts/Inter_18pt-Bold.ttf",
     48
 )
 
 stats_font = ImageFont.truetype(
-    "fonts/Inter_18pt-Bold.ttf",
+    "services/image_generation/fonts/Inter_18pt-Bold.ttf",
     42
 )
 
+smaller_stats_font = ImageFont.truetype(
+    "services/image_generation/fonts/Inter_18pt-Bold.ttf",
+    36
+)
+
 bar_font = ImageFont.truetype(
-    "fonts/Inter_18pt-Bold.ttf",
+    "services/image_generation/fonts/Inter_18pt-Bold.ttf",
     22
+)
+
+badge_font = ImageFont.truetype(
+    "services/image_generation/fonts/Inter_18pt-Bold.ttf",
+    20
 )
 
 layout_params = lp = DotDict({

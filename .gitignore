@@ -1,8 +1,8 @@
 .venv/
 .idea/
 logs/
-services/image/
-fonts/
+
+bot/images/for_tg/
 
 __pycache__/
 .env

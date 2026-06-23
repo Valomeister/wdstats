@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, UTC
 import math
 import random
 import time
@@ -307,7 +307,7 @@ async def gen_ranked_img_by_modes(ranked_stats, ranked_stats_by_modes, top_ranke
 
 
 async def gen_ranked_img_by_brawlers(ranked_stats, top_ranked_brawlers, player_nickname, page):
-    top_ranked_brawlers = (top_ranked_brawlers * (150 // len(top_ranked_brawlers)))[:104] # for tests
+    # top_ranked_brawlers = (top_ranked_brawlers * (150 // len(top_ranked_brawlers)))[:104] # for tests
     total_games, wins, draws, losses = ranked_stats
 
     print(top_ranked_brawlers)
@@ -535,7 +535,7 @@ async def gen_matches_img(stats, matches, player_nickname, page):
         )
 
         # time ago
-        now = datetime.datetime.now()
+        now = datetime.now(UTC).replace(tzinfo=None)
         time_diff = format_datetime_diff(now, matches[abs_i][0])
         draw_text_align_to_side(
             draw,

@@ -21,6 +21,11 @@ smaller_stats_font = ImageFont.truetype(
     36
 )
 
+time_ago_font = ImageFont.truetype(
+    "services/image_generation/fonts/Inter_18pt-Bold.ttf",
+    30
+)
+
 bar_font = ImageFont.truetype(
     "services/image_generation/fonts/Inter_18pt-Bold.ttf",
     22
@@ -69,4 +74,10 @@ gamemodes_colors = {
     'heist': '#CE59CC',
     'hotZone': '#DD394F',
     'knockout': '#FE7E13',
+}
+
+result_colors = {
+    1: '#67B000',
+    0: '#F3D600',
+    -1: '#E62727'
 }

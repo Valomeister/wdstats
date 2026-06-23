@@ -4,6 +4,9 @@ from PIL import Image, ImageDraw
 
 from services.image_generation.config import lp
 
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
+
 
 def get_text_bbox(draw, text, font):
     return draw.textbbox(
@@ -213,9 +216,9 @@ def draw_bar(draw, pos, total_games, wins, draws, losses, font):
             fill="#000000"
         )
 
-def load_ranked_ranks(folder_path, height):
+def load_ranked_ranks(folder_path, up_to, height):
     ranked_icons = {}
-    for rank in range(1, 23):
+    for rank in range(1, up_to + 1):
         filename = f'{folder_path}{rank}.png'
         img = Image.open(filename)
         initial_w, initial_h = img.size
@@ -265,21 +268,66 @@ def paste_image_with_border(canvas, draw, pos, img, brawler_icon_border_width):
     )
     canvas.paste(img, (pos[0], pos[1]))
 
-
-def round_img(img, radius, size=None):
+def round_img(
+        img,
+        radius,
+        size=None,
+        corners=(True, True, True, True)
+):
     img = img.convert("RGBA")
 
     if size:
         img = img.resize(size, Image.LANCZOS)
 
-    mask = Image.new("L", img.size, 0)
+    w, h = img.size
+
+    tl, tr, br, bl = corners
+
+    mask = Image.new("L", (w, h), 0)
     draw = ImageDraw.Draw(mask)
 
-    draw.rounded_rectangle(
-        (0, 0, img.width, img.height),
-        radius=radius,
-        fill=255
-    )
+    draw.rectangle((radius, 0, w - radius, h), fill=255)
+    draw.rectangle((0, radius, w, h - radius), fill=255)
+
+    # top-left
+    if tl:
+        draw.pieslice(
+            (0, 0, radius * 2, radius * 2),
+            180, 270,
+            fill=255
+        )
+    else:
+        draw.rectangle((0, 0, radius, radius), fill=255)
+
+    # top-right
+    if tr:
+        draw.pieslice(
+            (w - radius * 2, 0, w, radius * 2),
+            270, 360,
+            fill=255
+        )
+    else:
+        draw.rectangle((w - radius, 0, w, radius), fill=255)
+
+    # bottom-right
+    if br:
+        draw.pieslice(
+            (w - radius * 2, h - radius * 2, w, h),
+            0, 90,
+            fill=255
+        )
+    else:
+        draw.rectangle((w - radius, h - radius, w, h), fill=255)
+
+    # bottom-left
+    if bl:
+        draw.pieslice(
+            (0, h - radius * 2, radius * 2, h),
+            90, 180,
+            fill=255
+        )
+    else:
+        draw.rectangle((0, h - radius, radius, h), fill=255)
 
     result = Image.new("RGBA", img.size, (0, 0, 0, 0))
     result.paste(img, (0, 0), mask)
@@ -302,3 +350,46 @@ def gradient_rect(size, color=(0, 0, 0), start_alpha=0, end_alpha=255):
             pixels[x, y] = (*color, alpha)
 
     return img
+
+def format_datetime_diff(dt1: datetime, dt2: datetime) -> str:
+    if dt1 > dt2:
+        dt1, dt2 = dt2, dt1
+
+    rd = relativedelta(dt2, dt1)
+
+    units = [
+        ("y", rd.years),
+        ("mo", rd.months),
+        ("d", rd.days),
+        ("h", rd.hours),
+        ("m", rd.minutes),
+        ("s", rd.seconds),
+    ]
+
+    parts = [f"{value}{suffix}" for suffix, value in units if value]
+
+    if not parts:
+        return "0s"
+
+    return " ".join(parts[:2])
+
+def paste_icon_and_text(canvas, draw, center_xy, icon, text, font, gap):
+    center_x, center_y = center_xy
+    trophies_text_w, trophies_text_h = get_text_size(draw, text, font)
+    trophy_info_width = icon.width + gap + trophies_text_w
+    trophy_info_start_x = center_x - trophy_info_width / 2
+    trophy_icon_start_x = int(trophy_info_start_x)
+    trophy_icon_start_y = int(center_y - icon.height / 2)
+    text_start_x = trophy_info_start_x + icon.width + gap
+    text_start_y = center_y
+
+    canvas.paste(icon, (trophy_icon_start_x, trophy_icon_start_y), icon)
+    draw_text_align_to_side(
+        draw,
+        (text_start_x, text_start_y, text_start_x, text_start_y),
+        text=text,
+        font=font,
+        stroke_width=4,
+        fill='white',
+        side='left'
+    )

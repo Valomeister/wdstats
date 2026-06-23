@@ -9,7 +9,7 @@ REQUIRED_MODES = {"brawlBall", "gemGrab", "heist", "hotZone", "knockout", "bount
 async def get_ranked_stats(tag):
     async with SessionLocal() as session:
         repo = StatsRepository(session)
-        return await repo.get_ranked_stats(tag)
+        return await repo.get_stats(tag, 'soloRanked')
 
 async def get_ranked_stats_by_ranks(tag):
     async with SessionLocal() as session:
@@ -58,6 +58,16 @@ async def get_top_ranked_brawlers_by_modes(tag):
 
     return top_brawlers_dict
 
+async def get_overall_stats(tag):
+    async with SessionLocal() as session:
+        repo = StatsRepository(session)
+        return await repo.get_stats(tag)
+
+async def get_matches(tag):
+    async with SessionLocal() as session:
+        repo = StatsRepository(session)
+        return await repo.get_matches(tag, limit=10000000) # arbitrary large limit to fetch all
+
 async def fetch_data_for_main_ranked(tag):
     ranked_stats, ranked_stats_by_ranks, top_ranked_brawlers = await asyncio.gather(
         get_ranked_stats(tag),
@@ -83,3 +93,11 @@ async def fetch_data_for_ranked_by_brawlers(tag):
     )
 
     return ranked_stats, top_ranked_brawlers
+
+async def fetch_data_for_matches(tag):
+    overall_stats, matches = await asyncio.gather(
+        get_overall_stats(tag),
+        get_matches(tag), # arbitrary lim grater than the amount of brawlers
+    )
+
+    return overall_stats, matches

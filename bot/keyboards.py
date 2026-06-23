@@ -7,47 +7,54 @@ def main_menu_keyboard():
             [
                 InlineKeyboardButton(
                     text="ranked",
-                    callback_data="ranked"
+                    callback_data="RANKED_MENU"
                 ),
                 InlineKeyboardButton(
                     text="ladder",
-                    callback_data="ladder"
+                    callback_data="LADDER_MENU"
+                ),
+                InlineKeyboardButton(
+                    text="history",
+                    callback_data="HISTORY_MENU"
                 )
             ]
         ]
 
-def ranked_types_keyboard_row():
+def ranked_menu_keyboard():
     return \
         [
-            InlineKeyboardButton(
-                text="By rank",
-                callback_data="by_rank"
-            ),
-            InlineKeyboardButton(
-                text="By mode",
-                callback_data="by_mode"
-            ),
-            InlineKeyboardButton(
-                text="By brawler",
-                callback_data="by_brawler:1"
-            )
+            [
+                InlineKeyboardButton(
+                    text="By rank",
+                    callback_data="RANKED_BY_RANK_GEN"
+                ),
+                InlineKeyboardButton(
+                    text="By mode",
+                    callback_data="RANKED_BY_MODE_GEN"
+                ),
+                InlineKeyboardButton(
+                    text="By brawler",
+                    callback_data="RANKED_BY_BRAWLER_GEN"
+                )
+            ],
+            back_keyboard_row()
         ]
 
-def back_keyboard_row(callback_data):
+def back_keyboard_row():
     return \
         [
             InlineKeyboardButton(
                 text="Back",
-                callback_data=callback_data
+                callback_data='back'
             ),
         ]
 
-def slider_keyboard_row(page, has_prev, has_next, num_of_pages):
+def slider_keyboard_row(page, has_prev, has_next, num_of_pages, prev_view, next_view):
     return \
         [
             InlineKeyboardButton(
                 text="⟵" if has_prev else '·',
-                callback_data=f"by_brawler:{page - 1}" if has_prev else 'noop'
+                callback_data=prev_view if has_prev else 'noop'
             ),
             InlineKeyboardButton(
                 text=f"page {page}/{num_of_pages}",
@@ -55,6 +62,22 @@ def slider_keyboard_row(page, has_prev, has_next, num_of_pages):
             ),
             InlineKeyboardButton(
                 text="⟶" if has_next else '·',
-                callback_data=f"by_brawler:{page + 1}" if has_next else 'noop'
+                callback_data=next_view if has_next else 'noop'
             )
+        ]
+
+def history_menu_keyboard():
+    return \
+        [
+            [
+                InlineKeyboardButton(
+                    text="compact",
+                    callback_data="HISTORY_COMPACT_GEN"
+                ),
+                InlineKeyboardButton(
+                    text="detailed",
+                    callback_data="HISTORY_DETAILED_GEN"
+                )
+            ],
+            back_keyboard_row()
         ]

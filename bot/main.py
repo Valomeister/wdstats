@@ -20,7 +20,14 @@ from aiogram.types import Message, BufferedInputFile, CallbackQuery, InputMediaP
 from aiogram import F
 
 from bot.bot_utils import upload_file_to_vps
-from bot.keyboards import main_menu_keyboard, ranked_types_keyboard_row, back_keyboard_row, slider_keyboard_row
+from bot.keyboards import (
+    main_menu_keyboard,
+    ranked_menu_keyboard,
+    back_keyboard_row,
+    history_menu_keyboard,
+    slider_keyboard_row
+)
+
 from collector.api import BrawlAPI, api_context
 from db.session import SessionLocal
 from repositories.account_repository import AccountRepository
@@ -30,6 +37,7 @@ from services.image_generation.image_service import (
     create_main_ranked_img,
     create_ranked_img_by_modes,
     create_ranked_img_by_brawlers,
+    create_matches_img,
 )
 
 from aiogram.types import (
@@ -57,6 +65,8 @@ STATE_PARAMS_DEFAULTS = {
 }
 
 state = defaultdict(dict)
+inline_mode_state = defaultdict(list)
+
 users = {}
 accounts = {}
 
@@ -170,20 +180,9 @@ async def add_account(message: Message) -> None:
     await message.answer(response)
 
 
-async def main() -> None:
-    # Initialize Bot instance with default bot properties which will be passed to all API calls
-    bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-
-    # And the run events dispatching
-    await dp.start_polling(bot)
-
-    await session.close()
-
-
 @dp.inline_query()
 async def inline_handler(query: InlineQuery):
     user = await get_or_create_user(query.from_user.id, query.from_user.username)
-
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=main_menu_keyboard()
@@ -207,88 +206,216 @@ async def inline_handler(query: InlineQuery):
 
 @dp.chosen_inline_result()
 async def chosen(result: ChosenInlineResult):
-    set_state(result.inline_message_id, 'current_account_tag', result.result_id)
+    inline_mode_state[(result.from_user.id, result.inline_message_id)].extend([
+        {
+            'view': 'PROFILE_CHOICE',
+            'params': {
+                'chosen_tag': result.result_id
+            }
+        },
+        {
+            'view': 'MAIN_MENU',
+            'params': {}
+        }
+    ])
 
 
 @dp.callback_query()
 async def handler(callback: CallbackQuery):
     await callback.answer()
 
-    if callback.data == 'main_menu':
-        await callback.bot.edit_message_reply_markup(
-            inline_message_id=callback.inline_message_id,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=main_menu_keyboard()
-            )
-        )
+    key = (callback.from_user.id, callback.inline_message_id)
+    stack = inline_mode_state[key]
 
-    if callback.data == 'ladder':
-        ...
-    elif callback.data == 'ranked':
-        await callback.bot.edit_message_reply_markup(
-            inline_message_id=callback.inline_message_id,
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    ranked_types_keyboard_row(),
-                    back_keyboard_row('main_menu')
-                ]
-            )
-        )
+    if callback.data == 'back':
+        print('back')
+        stack.pop()
+        view_to_render = stack[-1]['view']
+    elif callback.data == 'noop':
+        return
     else:
-        keyboard = []
-        player_tag = get_state(callback.inline_message_id, 'current_account_tag')
-        account = await get_or_fetch_account(player_tag)
-        if callback.data == 'by_rank':
-            img = await create_main_ranked_img(account.player_tag, account.nickname)
-            keyboard.append(ranked_types_keyboard_row())
-            keyboard.append(back_keyboard_row('main_menu'))
-        elif callback.data == 'by_mode':
-            img = await create_ranked_img_by_modes(account.player_tag, account.nickname)
-            keyboard.append(ranked_types_keyboard_row())
-            keyboard.append(back_keyboard_row('main_menu'))
-        elif callback.data.startswith('by_brawler'):
-            page = int(callback.data.split(':')[1])
-            img, num_of_pages = await create_ranked_img_by_brawlers(
-                account.player_tag, account.nickname, page=page
-            )
-            has_prev, has_next = page > 1, page < num_of_pages
+        view_to_render = str(callback.data)
 
-            keyboard.append(slider_keyboard_row(page, has_prev, has_next, num_of_pages))
-            keyboard.append(back_keyboard_row('ranked'))
+    await renderers[view_to_render](stack[-1], callback, key, stack)
 
-        else:
-            return
 
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-3]
-        img_filename = f'{timestamp}_{random.randint(900, 999)}.webp'
-        img.save(f'{IMG_SAVE_DIR}/{img_filename}', format='WebP')
-        if CURRENT_MACHINE_TYPE != 'vps':
-            upload_file_to_vps(
-                local_file=f'bot/images/for_tg/{img_filename}',
-                remote_file=f'/root/wdstats/bot/images/for_tg/{img_filename}',
-            )
-        # img.show()
-
-        try:
-            await callback.bot.edit_message_reply_markup(
-                inline_message_id=callback.inline_message_id,
-                reply_markup=InlineKeyboardMarkup(
-                    inline_keyboard=keyboard
-                )
-            )
-        except aiogram.exceptions.TelegramBadRequest as e:
-            print('keyboard stayed the same')
-
-        await callback.bot.edit_message_media(
-            inline_message_id=callback.inline_message_id,
-            media=InputMediaPhoto(
-                media=f"https://wdraft.online/images/{img_filename}",
-                # media="https://wdraft.online/images/i-show-speed.jpg"
-            ),
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=keyboard
-            )
+async def main_menu_renderer(state, callback: CallbackQuery, key, stack):
+    print(f'main_menu_renderer()')
+    print(inline_mode_state[key])
+    await callback.bot.edit_message_reply_markup(
+        inline_message_id=callback.inline_message_id,
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=main_menu_keyboard()
         )
+    )
+
+async def ranked_menu_renderer(state, callback: CallbackQuery, key, stack):
+    print(f'ranked_menu_renderer()')
+    if callback.data != 'back':
+        stack.append(
+            {
+                'view': callback.data,
+                'params': {}
+            }
+        )
+    print(inline_mode_state[key])
+    await callback.bot.edit_message_media(
+        inline_message_id=callback.inline_message_id,
+        media=InputMediaPhoto(
+            media=f"https://wdraft.online/images/black.png",
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=ranked_menu_keyboard()
+        )
+    )
+
+
+async def ranked_by_rank_gen_renderer(state, callback: CallbackQuery, key, stack):
+    print(f'ranked_by_rank_gen_renderer()')
+    if stack[-1]['view'] != 'RANKED_MENU':
+        stack.pop()
+    stack.append(
+        {
+            'view': callback.data,
+            'params': {}
+        }
+    )
+    print(inline_mode_state[key])
+
+    player_tag = stack[0]['params']['chosen_tag']
+    account = await get_or_fetch_account(player_tag)
+
+    img = await create_main_ranked_img(account.player_tag, account.nickname)
+    await send_img(img, callback, ranked_menu_keyboard())
+
+
+async def ranked_by_mode_gen_renderer(state, callback: CallbackQuery, key, stack):
+    print(f'ranked_by_mode_gen_renderer()')
+    if stack[-1]['view'] != 'RANKED_MENU':
+        stack.pop()
+    stack.append(
+        {
+            'view': callback.data,
+            'params': {}
+        }
+    )
+
+    print(inline_mode_state[key])
+
+    player_tag = stack[0]['params']['chosen_tag']
+    account = await get_or_fetch_account(player_tag)
+
+    img = await create_ranked_img_by_modes(account.player_tag, account.nickname)
+    await send_img(img, callback, ranked_menu_keyboard())
+
+
+async def history_menu_renderer(state, callback: CallbackQuery, key, stack):
+    print(f'history_menu_renderer()')
+    if callback.data != 'back':
+        stack.append(
+            {
+                'view': callback.data,
+                'params': {}
+            }
+        )
+    print(inline_mode_state[key])
+    await callback.bot.edit_message_media(
+        inline_message_id=callback.inline_message_id,
+        media=InputMediaPhoto(
+            media=f"https://wdraft.online/images/black.png",
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=history_menu_keyboard()
+        )
+    )
+
+
+async def slideable_renderer(state, callback: CallbackQuery, key, stack):
+    slideable_view = callback.data
+    if slideable_view[-5:] in ('_PREV', '_NEXT'):
+        slideable_view = slideable_view[:-5]
+
+    img_create_func = slideable_params[slideable_view]['img_create_func']
+    parent_view = slideable_params[slideable_view]['parent_view']
+    prev_page_view = slideable_view + '_PREV'
+    next_page_view = slideable_view + '_NEXT'
+
+    print(f'slideable_renderer({slideable_view=})')
+    page = 1
+    if stack[-1]['view'] == slideable_view:
+        page = stack[-1]['params']['page']
+    else:
+        if stack[-1]['view'] != parent_view:
+            stack.pop()
+        stack.append(
+            {
+                'view': callback.data,
+                'params': {
+                    'page': 1
+                }
+            }
+        )
+
+    print(inline_mode_state[key])
+
+    player_tag = stack[0]['params']['chosen_tag']
+    account = await get_or_fetch_account(player_tag)
+
+    img, num_of_pages = await img_create_func(
+        account.player_tag, account.nickname, page=page
+    )
+    has_prev, has_next = page > 1, page < num_of_pages
+
+    await send_img(img, callback, [
+        slider_keyboard_row(
+            page, has_prev, has_next, num_of_pages,
+            prev_view=prev_page_view, next_view=next_page_view
+        ),
+        back_keyboard_row()
+    ])
+
+
+async def slideable_prev_renderer(state, callback: CallbackQuery, key, stack):
+    state['params']['page'] -= 1
+    await slideable_renderer(state, callback, key, stack)
+
+async def slideable_next_renderer(state, callback: CallbackQuery, key, stack):
+    state['params']['page'] += 1
+    await slideable_renderer(state, callback, key, stack)
+
+
+async def send_img(img, callback: CallbackQuery, keyboard):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S.%f")[:-3]
+    img_filename = f'{timestamp}_{random.randint(900, 999)}.webp'
+    img.save(f'{IMG_SAVE_DIR}/{img_filename}', format='WebP')
+    if CURRENT_MACHINE_TYPE != 'vps':
+        upload_file_to_vps(
+            local_file=f'bot/images/for_tg/{img_filename}',
+            remote_file=f'/root/wdstats/bot/images/for_tg/{img_filename}',
+        )
+    # img.show()
+
+
+    await callback.bot.edit_message_media(
+        inline_message_id=callback.inline_message_id,
+        media=InputMediaPhoto(
+            media=f"https://wdraft.online/images/{img_filename}",
+            # media="https://wdraft.online/images/i-show-speed.jpg"
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=keyboard
+        )
+    )
+
+async def main() -> None:
+    # Initialize Bot instance with default bot properties which will be passed to all API calls
+    bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+    # And the run events dispatching
+    await dp.start_polling(bot)
+
+    await session.close()
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
@@ -296,5 +423,41 @@ if __name__ == "__main__":
     session = SessionLocal()
     user_repo = UserRepository(session)
     account_repo = AccountRepository(session)
+
+    slideable_params = {
+        'HISTORY_COMPACT_GEN': {
+            'img_create_func': create_matches_img,
+            'parent_view': 'HISTORY_MENU'
+        },
+        'RANKED_BY_BRAWLER_GEN': {
+            'img_create_func': create_ranked_img_by_brawlers,
+            'parent_view': 'RANKED_MENU'
+        }
+    }
+
+    renderers = {
+        # main
+        'MAIN_MENU': main_menu_renderer, # actually only called when we get to main menu by pressing "back"
+
+        # ranked
+        'RANKED_MENU': ranked_menu_renderer,
+        'RANKED_BY_RANK_GEN': ranked_by_rank_gen_renderer,
+        'RANKED_BY_MODE_GEN': ranked_by_mode_gen_renderer,
+        'RANKED_BY_BRAWLER_GEN': slideable_renderer,
+        'RANKED_BY_BRAWLER_GEN_PREV': slideable_prev_renderer,
+        'RANKED_BY_BRAWLER_GEN_NEXT': slideable_next_renderer,
+        #
+        # # ladder
+        # 'LADDER_MENU': profile_choice_renderer,
+        #
+        #history
+        'HISTORY_MENU': history_menu_renderer,
+        'HISTORY_COMPACT_GEN': slideable_renderer,
+        'HISTORY_COMPACT_GEN_PREV': slideable_prev_renderer,
+        'HISTORY_COMPACT_GEN_NEXT': slideable_next_renderer,
+        # 'HISTORY_DETAILED_GEN': history_detailed_gne_renderer,
+
+
+    }
 
     asyncio.run(main())

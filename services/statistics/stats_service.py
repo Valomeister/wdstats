@@ -18,6 +18,7 @@ async def main():
     # print(await stats_repo.get_top_ranked_brawlers_by_modes(tag))
     # print(await stats_repo.get_matches(tag, limit=20, offset=30))
     # print(await stats_repo.count_matches(tag))
+    print(await stats_repo.get_detailed_matches(tag, limit=20))
 
 
     await session.close()

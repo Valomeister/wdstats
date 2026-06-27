@@ -1,5 +1,24 @@
-from aiogram.types import InlineKeyboardButton
+from aiogram import Bot
+from aiogram.types import InlineKeyboardButton, BotCommand
 
+
+async def setup_menu(bot: Bot):
+    await bot.set_my_commands(
+        [
+            BotCommand(
+                command="start",
+                description="Launch bot"
+            ),
+            BotCommand(
+                command="accounts",
+                description="Your brawl accounts"
+            ),
+            BotCommand(
+                command="add_account",
+                description="Add brawl account"
+            ),
+        ]
+    )
 
 def main_menu_keyboard():
     return \
@@ -81,3 +100,4 @@ def history_menu_keyboard():
             ],
             back_keyboard_row()
         ]
+

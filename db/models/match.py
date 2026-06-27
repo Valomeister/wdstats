@@ -22,3 +22,14 @@ class Match(Base):
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
 
     players: Mapped[List['MatchPlayer']] = relationship(back_populates='match')
+
+    def __repr__(self):
+        return (
+            f"Match("
+            f"id={self.id}, "
+            f"match_time={self.match_time}, "
+            f"game_mode='{self.game_mode}', "
+            f"game_map='{self.game_map}', "
+            f"result={self.result}"
+            f")"
+        )

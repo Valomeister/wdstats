@@ -8,12 +8,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 from services.image_generation.config import (
     lp,
-    nickname_font, stats_font, bar_font, smaller_stats_font, time_ago_font,
-    badge_font, gamemodes_colors, result_colors,
+    nickname_font, stats_font, bar_font, smaller_stats_font, time_ago_font, font_30, font_66,
+    badge_font, gamemodes_colors, result_colors, result_titles
 )
 from services.image_generation.db_utils import (
     fetch_data_for_main_ranked, fetch_data_for_ranked_by_modes,
-    REQUIRED_MODES, fetch_data_for_ranked_by_brawlers, fetch_data_for_matches
+    REQUIRED_MODES, fetch_data_for_ranked_by_brawlers, fetch_data_for_matches,
+    fetch_detailed_data_for_matches
 )
 
 from services.image_generation.image_utils import (
@@ -30,11 +31,13 @@ from services.image_generation.image_utils import (
     gradient_rect,
     get_text_size,
     format_datetime_diff,
-    paste_icon_and_text
+    paste_icon_and_text,
+    draw_clipped_text
 )
+from services.image_generation.unicode_renderer import render_unicode
 
 
-def get_template(stats, player_nickname, matches_type_name):
+async def get_template(stats, player_nickname, matches_type_name):
     total_games, wins, draws, losses = stats
 
     profile_icon = Image.open('services/image_generation/images/profile_icon_placeholder.jpg')
@@ -43,21 +46,18 @@ def get_template(stats, player_nickname, matches_type_name):
 
     draw = ImageDraw.Draw(canvas_copy)
 
-    # nickname
-    draw_text_centered(
-        draw,
-        [
-            lp.margin + profile_icon.width + lp.margin / 2,
-            lp.margin,
-            lp.margin + profile_icon.width + lp.margin / 2,
-            lp.margin + profile_icon.height
-        ],
+    nickname_img = await render_unicode(
         player_nickname,
-        nickname_font,
-        4,
-        center_x=False,
-        center_y=True
+        color="#fff",
+        font_size=48,
+        outline_width=6,
+        outline_color="#000",
+
     )
+
+    nickname_start_x = int(lp.margin + profile_icon.width + lp.margin / 2)
+    nickname_start_y = int(lp.margin + profile_icon.height / 2 - nickname_img.height / 2)
+    canvas_copy.paste(nickname_img, (nickname_start_x, nickname_start_y), nickname_img)
 
     # total
     total_games_text = f'{total_games} {matches_type_name} games'
@@ -120,7 +120,7 @@ async def gen_main_ranked_img(ranked_stats, ranked_stats_by_ranks, top_ranked_br
     print(total_games, wins, draws, losses)
     print(top_ranked_brawlers)
 
-    canvas, draw = get_template(ranked_stats, player_nickname, 'ranked')
+    canvas, draw = await get_template(ranked_stats, player_nickname, 'ranked')
 
     # blur bg
     canvas.paste(DARK_BG, (0, int(lp.screen_height / 2)), DARK_BG)
@@ -192,6 +192,7 @@ async def gen_main_ranked_img(ranked_stats, ranked_stats_by_ranks, top_ranked_br
 
     return canvas
 
+
 async def gen_ranked_img_by_modes(ranked_stats, ranked_stats_by_modes, top_ranked_brawlers_by_modes, player_nickname):
     total_games, wins, draws, losses = ranked_stats
 
@@ -199,7 +200,7 @@ async def gen_ranked_img_by_modes(ranked_stats, ranked_stats_by_modes, top_ranke
     print(total_games, wins, draws, losses)
     print(top_ranked_brawlers_by_modes)
 
-    canvas, draw = get_template(ranked_stats, player_nickname, 'ranked')
+    canvas, draw = await get_template(ranked_stats, player_nickname, 'ranked')
 
     cards_inner_horizontal_margin = 20
     cards_outer_margin = 20
@@ -313,7 +314,7 @@ async def gen_ranked_img_by_brawlers(ranked_stats, top_ranked_brawlers, player_n
     print(top_ranked_brawlers)
     print(total_games, wins, draws, losses)
 
-    canvas, draw = get_template(ranked_stats, player_nickname, 'ranked')
+    canvas, draw = await get_template(ranked_stats, player_nickname, 'ranked')
 
     row_capacity = 4
     col_capacity = 8
@@ -445,13 +446,12 @@ async def gen_ranked_img_by_brawlers(ranked_stats, top_ranked_brawlers, player_n
 
 
 async def gen_matches_img(stats, matches, player_nickname, page):
-    # top_ranked_brawlers = (top_ranked_brawlers * (150 // len(top_ranked_brawlers)))[:104] # for tests
     total_games, wins, draws, losses = stats
 
     print(*matches[:10], sep='\n')
     print(total_games, wins, draws, losses)
 
-    canvas, draw = get_template(stats, player_nickname, 'total')
+    canvas, draw = await get_template(stats, player_nickname, 'total')
 
     row_capacity = 4
     col_capacity = 5
@@ -569,11 +569,13 @@ async def gen_matches_img(stats, matches, player_nickname, page):
             paste_icon_and_text(
                 canvas,
                 draw,
-                (trophy_info_center_x, trophy_info_center_y),
                 rank_icon,
                 'I' * rank_digit,
                 smaller_stats_font,
-                trophy_icon_text_gap)
+                trophy_icon_text_gap,
+                center_xy=(trophy_info_center_x, trophy_info_center_y)
+            )
+
 
         elif matches[abs_i][2] == 'ranked':
             trophy_info_center_x = (card_end_x + card_start_x + icon_w) / 2
@@ -581,14 +583,235 @@ async def gen_matches_img(stats, matches, player_nickname, page):
             paste_icon_and_text(
                 canvas,
                 draw,
-                (trophy_info_center_x, trophy_info_center_y),
                 TROPHY,
                 str(matches[abs_i][5]),
                 smaller_stats_font,
-                trophy_icon_text_gap)
+                trophy_icon_text_gap,
+                center_xy=(trophy_info_center_x, trophy_info_center_y)
+            )
 
         else:
             print('undefined', matches[abs_i][2])
+
+    if page * (row_capacity * col_capacity) <= len(matches):
+        grad = gradient_rect((area_outer_width, grad_height))
+        canvas.paste(grad, (offset_x, lp.screen_height - grad_height), grad)
+
+    if page > 1 and (page - 1) * (row_capacity * col_capacity) + 1 <= len(matches):
+        grad = gradient_rect((area_outer_width, grad_height), start_alpha=255, end_alpha=0)
+        canvas.paste(grad, (offset_x, 0), grad)
+
+    return canvas, num_of_pages
+
+
+async def gen_detailed_matches_img(stats, matches, player_nickname, page):
+    total_games, wins, draws, losses = stats
+
+    print(*matches[:3], sep='\n')
+    print(total_games, wins, draws, losses)
+
+    canvas, draw = await get_template(stats, player_nickname, 'total')
+
+    row_capacity = 1
+    col_capacity = 3
+    num_of_pages = math.ceil(len(matches) / (row_capacity * col_capacity))
+    border_width = 6
+    inner_margin = 25  # between cards
+    outer_margin = 50
+    trophy_icon_text_gap = 6
+    card_width = 1120
+    card_height = 240
+    icon_w, icon_h = BIGGER_BRAWLER_ICONS['shelly'].size
+    badge_width = card_width
+    badge_height = 65
+    card_padding = 20
+    brawlers_margin = 40
+    area_outer_width = outer_margin * 2 + row_capacity * card_width + (row_capacity - 1) * inner_margin
+    grad_height = 50
+    offset_x = lp.screen_width - area_outer_width
+    offset_y = int((lp.screen_height - col_capacity * card_height - (col_capacity - 1) * inner_margin) / 2)
+
+    # blur bg
+    canvas.paste(DARK_BG, (offset_x, 0), DARK_BG)
+
+    iteration_start = (page - 1) * (row_capacity * col_capacity) - row_capacity
+    iteration_end = min(len(matches), page * (row_capacity * col_capacity) + row_capacity)
+    for abs_i in range(iteration_start, iteration_end):
+        if abs_i < 0:
+            continue
+
+        cur_player_team = None
+        for p in matches[abs_i][0].players:
+            if p.player_nickname == player_nickname:
+                cur_player_team = p.team
+                break
+        print(f'{cur_player_team = }')
+        if cur_player_team == -1:
+            for p in matches[abs_i][0].players:
+                p.team *= -1
+        matches[abs_i][0].players.sort(
+            key=lambda x: (-x.team, -int(x.player_nickname == player_nickname))
+        )
+
+        rel_i = abs_i - iteration_start
+        row = rel_i // row_capacity - 1
+        col = rel_i % row_capacity
+        card_center_x = offset_x + lp.margin + col * (card_width + inner_margin) + card_width / 2
+        card_start_x = card_center_x - card_width / 2
+        card_end_x = card_start_x + card_width
+        card_start_y = offset_y + row * (card_height + inner_margin)
+        card_end_y = card_start_y + card_height
+        card_center_y = card_start_y + card_height / 2
+
+        # badge bg
+        badge_start_x = card_start_x
+        badge_end_x = badge_start_x + badge_width
+        badge_start_y = card_start_y
+        badge_end_y = badge_start_y + badge_height
+        draw.rectangle(
+            (badge_start_x, badge_start_y, badge_end_x, badge_end_y),
+            fill='#766A94',
+        )
+
+        # game_mode
+        game_mode = matches[abs_i][0].game_mode
+        normalized_mode_name = normalize_name(game_mode)
+        game_mode_icon = GAME_MODE_ICONS.get(normalized_mode_name, MODE_PLACEHOLDER)
+        # game_mode_icon = random.choice(list(GAME_MODE_ICONS.values()))
+        game_mode_icon_start_x = int(card_start_x + card_padding)
+        game_mode_icon_center_y = card_start_y + badge_height / 2
+        game_mode_icon_start_y = int(game_mode_icon_center_y - game_mode_icon.height / 2)
+        canvas.paste(game_mode_icon, (game_mode_icon_start_x, game_mode_icon_start_y), game_mode_icon)
+
+        # game_map
+        game_map_start_x = int(game_mode_icon_start_x + game_mode_icon.width + card_padding)
+        game_map_center_y = int(badge_start_y + badge_height / 2)
+        draw_text_align_to_side(
+            draw,
+            (game_map_start_x, game_map_center_y, game_map_start_x, game_map_center_y),
+            matches[abs_i][0].game_map,
+            font_30,
+            4,
+            gamemodes_colors[game_mode],
+            'left'
+        )
+
+        # result
+        result_center_x = badge_start_x + badge_width / 2
+        result_center_y = badge_start_y + badge_height / 2
+        result = matches[abs_i][1]
+        draw_text_centered(
+            draw,
+            (result_center_x, result_center_y, result_center_x, result_center_y),
+            result_titles[result],
+            font_30,
+            4,
+            result_colors[result]
+        )
+
+        # time ago
+        now = datetime.now(UTC).replace(tzinfo=None)
+        time_diff = format_datetime_diff(now, matches[abs_i][0].match_time)
+        draw_text_align_to_side(
+            draw,
+            (
+                badge_end_x - card_padding,
+                badge_start_y + badge_height / 2,
+                badge_end_x - card_padding,
+                badge_start_y + badge_height / 2
+            ),
+            time_diff,
+            time_ago_font,
+            4,
+            'white',
+            side='right'
+        )
+
+        # card body bg
+        card_body_start_x = card_start_x
+        card_body_end_x = card_start_x + badge_width
+        card_body_start_y = card_start_y + badge_height
+        card_body_end_y = card_end_y
+        draw.rectangle(
+            (card_body_start_x, card_body_start_y, card_body_end_x, card_body_end_y),
+            fill='#8D82A6',
+        )
+
+        # VS
+        vs_center_y = (card_start_y + badge_height + card_end_y) / 2
+        draw_text_centered(
+            draw,
+            (card_center_x, vs_center_y, card_center_x, vs_center_y),
+            'VS',
+            font_66,
+            6
+        )
+        for player_n, player in enumerate(matches[abs_i][0].players):
+            team = player_n // 3
+            pos_in_team = player_n % 3
+
+            if team == 0:
+                team_start_x = card_start_x + card_padding
+            else:
+                team_start_x = card_end_x - card_padding - 3 * icon_w - 2 * brawlers_margin
+
+            # brawler
+            normalized_name = normalize_name(player.brawler)
+            placeholder_icon = BIGGER_BRAWLER_ICONS['placeholder']
+            brawler_icon = BIGGER_BRAWLER_ICONS.get(normalized_name, placeholder_icon)
+            brawler_start_x = int(team_start_x + pos_in_team * (icon_w + brawlers_margin))
+            brawler_start_y = int(card_body_start_y + card_padding)
+            brawler_end_x = brawler_start_x + icon_w
+            brawler_end_y = brawler_start_y + icon_w
+            paste_image_with_border(canvas, draw, (brawler_start_x, brawler_start_y), brawler_icon, 4)
+
+            # nickname
+            nickname = player.player_nickname
+            nickname_width, nickname_height = get_text_size(draw, nickname, badge_font)
+            nickname_negative_margin = 18
+            nickname_start_x = int(
+                brawler_start_x + icon_w / 2 - nickname_width / 2
+            )
+            nickname_start_y = int((brawler_start_y + icon_h + card_end_y) / 2 - nickname_height / 2)
+            nickname_img = await render_unicode(
+                nickname,
+                color="#fff",
+                font_size=20,
+                outline_width=3,
+                outline_color="#000",
+            )
+            canvas.paste(nickname_img, (nickname_start_x, nickname_start_y), nickname_img)
+            nickname_img.save(f'{player_n}.png', format='png')
+            if matches[abs_i][0].game_type == 'soloRanked':
+                rank_family = (matches[abs_i][3] - 1) // 3 + 1
+                rank_digit = (matches[abs_i][3] - 1) % 3 + 1
+                rank_icon = RANK_ICONS_NO_DIGITS[rank_family]
+                trophy_info_start_x = int(brawler_start_x - rank_icon.width / 2)
+                trophy_info_start_y = int(brawler_start_y - rank_icon.height / 2)
+                paste_icon_and_text(
+                    canvas,
+                    draw,
+                    rank_icon,
+                    'I' * rank_digit,
+                    smaller_stats_font,
+                    trophy_icon_text_gap,
+                    start_xy=(trophy_info_start_x, trophy_info_start_y)
+                )
+            elif matches[abs_i][0].game_type == 'ranked':
+                trophy_info_start_x = int(brawler_start_x - TROPHY.width / 2)
+                trophy_info_start_y = int(brawler_start_y - TROPHY.height / 2)
+                paste_icon_and_text(
+                    canvas,
+                    draw,
+                    TROPHY,
+                    f'{player.trophies}',
+                    font_30,
+                    trophy_icon_text_gap,
+                    start_xy=(trophy_info_start_x, trophy_info_start_y)
+                )
+
+            else:
+                print('undefined', matches[abs_i][2])
 
     if page * (row_capacity * col_capacity) <= len(matches):
         grad = gradient_rect((area_outer_width, grad_height))
@@ -617,21 +840,27 @@ async def create_matches_img(tag, player_nickname, page):
     stats, matches = await(fetch_data_for_matches(tag))
     return await gen_matches_img(stats, matches, player_nickname, page)
 
+async def create_detailed_matches_img(tag, player_nickname, page):
+    stats, matches = await(fetch_detailed_data_for_matches(tag))
+    return await gen_detailed_matches_img(stats, matches, player_nickname, page)
 
 
 async def main():
-    tag = '#2RJUQQ0Q8Y'
+    # tag = '#2RJUQQ0Q8Y'
     # tag = '#9JQ888Y8U'
     # tag = '#VC9QCRUYC'
-    # tag = '#2ULGU8UQG0'
+    tag = '#2ULGU8UQG0'
     # tag = '#2V0UL0GQV8'
-    player_nickname = 'HMB|ℝĭ̈𝘤𝓴ꪗツ'
+    # tag = '#2VQ82YGY'
+    player_nickname = 'ищю парня 🍑д13'
 
     start = time.time()
-    # img_ = await create_main_ranked_img(tag, player_nickname)
+    img_ = await create_main_ranked_img(tag, player_nickname)
     # img_ = await create_ranked_img_by_modes(tag, player_nickname)
     # img_, _ = await create_ranked_img_by_brawlers(tag, player_nickname, 1)
-    img_, _ = await create_matches_img(tag, player_nickname, 3)
+    # img_, _ = await create_matches_img(tag, player_nickname, 3)
+    # img_, _ = await create_detailed_matches_img(tag, player_nickname, 1)
+    # img_, _ = await create_detailed_matches_img(tag, player_nickname, 2)
     img_.show()
     print(time.time() - start)
 
@@ -639,6 +868,10 @@ CANVAS = Image.open('services/image_generation/images/bg.jpg')
 BRAWLER_ICONS = load_brawler_icons('services/image_generation/images/brawler_icons')
 SMALLER_BRAWLER_ICONS = {
     brawler: img.resize((lp.mode_icons_height, lp.mode_icons_height))
+    for brawler, img in BRAWLER_ICONS.items()
+}
+BIGGER_BRAWLER_ICONS = {
+    brawler: img.resize((110, 110))
     for brawler, img in BRAWLER_ICONS.items()
 }
 ROUNDED_BRAWLER_ICONS = {

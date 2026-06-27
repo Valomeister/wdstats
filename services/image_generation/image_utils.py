@@ -334,20 +334,37 @@ def round_img(
 
     return result
 
-def gradient_rect(size, color=(0, 0, 0), start_alpha=0, end_alpha=255):
+
+from PIL import Image
+
+
+def gradient_rect(
+    size,
+    color=(0, 0, 0),
+    start_alpha=0,
+    end_alpha=255,
+    horizontal=False,
+):
     width, height = size
 
     img = Image.new("RGBA", size)
-
     pixels = img.load()
 
-    for y in range(height):
+    length = width if horizontal else height
+    denom = max(length - 1, 1)
+
+    for i in range(length):
         alpha = int(
-            start_alpha + (end_alpha - start_alpha) * y / (height - 1)
+            start_alpha +
+            (end_alpha - start_alpha) * i / denom
         )
 
-        for x in range(width):
-            pixels[x, y] = (*color, alpha)
+        if horizontal:
+            for y in range(height):
+                pixels[i, y] = (*color, alpha)
+        else:
+            for x in range(width):
+                pixels[x, i] = (*color, alpha)
 
     return img
 
@@ -373,23 +390,91 @@ def format_datetime_diff(dt1: datetime, dt2: datetime) -> str:
 
     return " ".join(parts[:2])
 
-def paste_icon_and_text(canvas, draw, center_xy, icon, text, font, gap):
-    center_x, center_y = center_xy
-    trophies_text_w, trophies_text_h = get_text_size(draw, text, font)
-    trophy_info_width = icon.width + gap + trophies_text_w
-    trophy_info_start_x = center_x - trophy_info_width / 2
-    trophy_icon_start_x = int(trophy_info_start_x)
-    trophy_icon_start_y = int(center_y - icon.height / 2)
-    text_start_x = trophy_info_start_x + icon.width + gap
-    text_start_y = center_y
+def paste_icon_and_text(canvas, draw, icon, text, font, gap, center_xy=None, start_xy=None):
+    if center_xy is not None:
+        center_x, center_y = center_xy
+        trophies_text_w, trophies_text_h = get_text_size(draw, text, font)
+        trophy_info_width = icon.width + gap + trophies_text_w
+        trophy_info_start_x = center_x - trophy_info_width / 2
+        trophy_icon_start_x = int(trophy_info_start_x)
+        trophy_icon_start_y = int(center_y - icon.height / 2)
+        text_start_x = trophy_info_start_x + icon.width + gap
+        text_center_y = center_y
+    elif start_xy is not None:
+        trophy_info_start_x, trophy_info_start_y = start_xy
+        trophy_icon_start_x, trophy_icon_start_y = trophy_info_start_x, trophy_info_start_y
+        trophies_text_w, trophies_text_h = get_text_size(draw, text, font)
+        center_x = trophy_info_start_x + (icon.width + gap + trophies_text_w) / 2
+        center_y = trophy_info_start_y + icon.height / 2
+        trophy_icon_start_x = int(trophy_info_start_x)
+        text_start_x = trophy_info_start_x + icon.width + gap
+        text_center_y = center_y
+    else:
+        raise
 
     canvas.paste(icon, (trophy_icon_start_x, trophy_icon_start_y), icon)
     draw_text_align_to_side(
         draw,
-        (text_start_x, text_start_y, text_start_x, text_start_y),
+        (text_start_x, text_center_y, text_start_x, text_center_y),
         text=text,
         font=font,
         stroke_width=4,
         fill='white',
         side='left'
     )
+
+from PIL import Image, ImageDraw, ImageFont
+
+
+def draw_clipped_text(
+    canvas,
+    draw,
+    position,
+    text,
+    font,
+    fill,
+    max_width,
+    stroke_width=2,
+    fade_width=40,
+    fade_color=(0, 0, 0),
+):
+
+    left, top, right, bottom = get_text_bbox(draw, text, font)
+    text_width = right - left
+    text_height = bottom - top
+
+    text_layer = Image.new(
+        "RGBA",
+        (text_width + 2 * stroke_width, text_height + 2 * stroke_width),
+        (0, 0, 0, 0)
+    )
+
+    ImageDraw.Draw(text_layer).text(
+        (-(left - stroke_width), -(top - stroke_width)),
+        text,
+        font=font,
+        fill=fill,
+        stroke_width=2,
+        stroke_fill='black'
+    )
+
+    cropped = text_layer.crop(
+        (0, 0, max_width + 2 * stroke_width, text_height + 2 * stroke_width)
+    )
+
+    fade_width = min(fade_width, max_width)
+
+    gradient = gradient_rect(
+        (fade_width, (text_height + 2 * stroke_width)),
+        color=fade_color,
+        start_alpha=0,
+        end_alpha=255,
+        horizontal=True
+    )
+
+    cropped.alpha_composite(
+        gradient,
+        (max_width + 2 * stroke_width - fade_width, 0)
+    )
+
+    canvas.paste(cropped, position, cropped)

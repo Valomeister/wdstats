@@ -16,3 +16,14 @@ class MatchPlayer(Base):
     match_id: Mapped[int] = mapped_column(ForeignKey('matches.id'))
 
     match: Mapped['Match'] = relationship(back_populates='players')
+
+    def __repr__(self):
+        return (
+            f"MatchPlayer("
+            f"tag='{self.player_tag}', "
+            f"nick='{self.player_nickname}', "
+            f"team={self.team}, "
+            f"relative_result={self.match.result * self.team}"
+            f"brawler='{self.brawler}'"
+            f")"
+        )

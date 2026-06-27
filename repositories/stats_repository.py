@@ -1,5 +1,6 @@
 from sqlalchemy import select, func, or_, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from db.models import Match, MatchPlayer
 
@@ -229,3 +230,61 @@ class StatsRepository:
         result = await self.session.execute(stmt)
 
         return result.scalar()
+
+    async def get_detailed_matches(self, player_tag, limit, offset=0):
+        player = MatchPlayer
+
+        relative_result = (
+            case(
+                (
+                    and_(
+                        Match.result == 1,
+                        player.team == 1
+                    ),
+                    1
+                ),
+                (
+                    and_(
+                        Match.result == -1,
+                        player.team == -1
+                    ),
+                    1
+                ),
+                (
+                    Match.result == 0,
+                    0
+                ),
+                else_=-1
+            )
+        ).label("result")
+
+        is_star_player = (
+            (Match.star_player == player_tag)
+            .label("is_star_player")
+        )
+
+        stmt = (
+            select(
+                Match,
+                relative_result,
+                is_star_player,
+                player.trophies,
+                player.brawler,
+            )
+            .join(player)
+            .where(
+                player.player_tag == player_tag
+            )
+            .options(
+                selectinload(Match.players)
+            )
+            .order_by(
+                Match.match_time.desc()
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+
+        result = await self.session.execute(stmt)
+
+        return result.all()

@@ -21,11 +21,12 @@ from aiogram import F
 
 from bot.bot_utils import upload_file_to_vps
 from bot.keyboards import (
+    setup_menu,
     main_menu_keyboard,
     ranked_menu_keyboard,
     back_keyboard_row,
     history_menu_keyboard,
-    slider_keyboard_row
+    slider_keyboard_row,
 )
 
 from collector.api import BrawlAPI, api_context
@@ -37,7 +38,7 @@ from services.image_generation.image_service import (
     create_main_ranked_img,
     create_ranked_img_by_modes,
     create_ranked_img_by_brawlers,
-    create_matches_img,
+    create_matches_img, create_detailed_matches_img,
 )
 
 from aiogram.types import (
@@ -92,8 +93,9 @@ async def get_or_create_user(user_id, username):
     if not user:
         user = await user_repo.create(user_id, username)
 
-    for acc in user.accounts:
-        accounts[acc.player_tag] = acc
+    if user:
+        for acc in user.accounts:
+            accounts[acc.player_tag] = acc
 
     users[user_id] = user
 
@@ -168,7 +170,8 @@ async def add_account(message: Message) -> None:
             else:
                 user.accounts.append(account)
                 await session.commit()
-                response = 'Added account successfully'
+                response = f'Added {account.nickname} successfully'
+                set_state(message.from_user.id, 'adding_account', False)
 
         except Exception as e:
             response = 'Something went wrong'
@@ -411,7 +414,8 @@ async def main() -> None:
     # Initialize Bot instance with default bot properties which will be passed to all API calls
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
-    # And the run events dispatching
+    await setup_menu(bot)
+
     await dp.start_polling(bot)
 
     await session.close()
@@ -427,6 +431,10 @@ if __name__ == "__main__":
     slideable_params = {
         'HISTORY_COMPACT_GEN': {
             'img_create_func': create_matches_img,
+            'parent_view': 'HISTORY_MENU'
+        },
+        'HISTORY_DETAILED_GEN': {
+            'img_create_func': create_detailed_matches_img,
             'parent_view': 'HISTORY_MENU'
         },
         'RANKED_BY_BRAWLER_GEN': {
@@ -455,8 +463,9 @@ if __name__ == "__main__":
         'HISTORY_COMPACT_GEN': slideable_renderer,
         'HISTORY_COMPACT_GEN_PREV': slideable_prev_renderer,
         'HISTORY_COMPACT_GEN_NEXT': slideable_next_renderer,
-        # 'HISTORY_DETAILED_GEN': history_detailed_gne_renderer,
-
+        'HISTORY_DETAILED_GEN': slideable_renderer,
+        'HISTORY_DETAILED_GEN_PREV': slideable_prev_renderer,
+        'HISTORY_DETAILED_GEN_NEXT': slideable_next_renderer,
 
     }
 

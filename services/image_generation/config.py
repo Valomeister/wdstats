@@ -26,6 +26,16 @@ time_ago_font = ImageFont.truetype(
     30
 )
 
+font_30 = ImageFont.truetype(
+    "services/image_generation/fonts/Inter_18pt-Bold.ttf",
+    30
+)
+
+font_66 = ImageFont.truetype(
+    "services/image_generation/fonts/Inter_18pt-Bold.ttf",
+    66
+)
+
 bar_font = ImageFont.truetype(
     "services/image_generation/fonts/Inter_18pt-Bold.ttf",
     22
@@ -35,6 +45,12 @@ badge_font = ImageFont.truetype(
     "services/image_generation/fonts/Inter_18pt-Bold.ttf",
     20
 )
+
+font_16 = ImageFont.truetype(
+    "services/image_generation/fonts/Inter_18pt-Bold.ttf",
+    16
+)
+
 
 layout_params = lp = DotDict({
     # canvas
@@ -73,11 +89,17 @@ gamemodes_colors = {
     'gemGrab': '#9B3DF3',
     'heist': '#CE59CC',
     'hotZone': '#DD394F',
-    'knockout': '#FE7E13',
+    'knockout': '#FF7F14',
 }
 
 result_colors = {
     1: '#67B000',
     0: '#F3D600',
     -1: '#E62727'
+}
+
+result_titles = {
+    1: 'VICTORY',
+    0: 'DRAW',
+    -1: 'LOSS'
 }

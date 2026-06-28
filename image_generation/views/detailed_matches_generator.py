@@ -193,7 +193,7 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, player_n
                 outline_color="#000",
             )
             canvas.paste(nickname_img, (nickname_start_x, nickname_start_y), nickname_img)
-            nickname_img.save(f'{player_n}.png', format='png')
+
             if matches[rel_i][0].game_type == 'soloRanked':
                 rank_family = (matches[rel_i][3] - 1) // 3 + 1
                 rank_digit = (matches[rel_i][3] - 1) % 3 + 1

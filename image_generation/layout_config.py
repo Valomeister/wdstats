@@ -35,6 +35,9 @@ gamemodes_colors = {
     'heist': '#CE59CC',
     'hotZone': '#DD394F',
     'knockout': '#FF7F14',
+    'soloShowdown': '#81D621',
+    'duoShowdown': '#81D621',
+    'trioShowdown': '#81D621',
 }
 
 result_colors = {

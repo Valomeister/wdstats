@@ -38,13 +38,13 @@ class StatsService:
     async def get_top_ranked_brawlers(tag, lim):
         async with SessionLocal() as session:
             repo = StatsRepository(session)
-            return await repo.get_top_ranked_brawlers(tag, game_type='soloRanked', lim=lim)
+            return await repo.get_top_brawlers(tag, game_type='soloRanked', lim=lim)
 
     @staticmethod
     async def get_top_ladder_brawlers(tag, lim):
         async with SessionLocal() as session:
             repo = StatsRepository(session)
-            return await repo.get_top_ranked_brawlers(tag, game_type='ranked', lim=lim)
+            return await repo.get_top_brawlers(tag, game_type='ranked', lim=lim)
 
     @staticmethod
     async def get_ranked_stats_by_modes(tag):

@@ -7,23 +7,45 @@ from db.models import Match, MatchPlayer
 VICTORIES_STMT = (
     func.count(Match.id).filter(
         or_(
-            and_(Match.result == 1, MatchPlayer.team == 1),
-            and_(Match.result == -1, MatchPlayer.team == -1)
+            and_(
+                Match.game_mode.in_(["soloShowdown", "duoShowdown", "trioShowdown"]),
+                Match.result == 1
+            ),
+            and_(
+                Match.game_mode.notin_(["soloShowdown", "duoShowdown", "trioShowdown"]),
+                or_(
+                    and_(Match.result == 1, MatchPlayer.team == 1),
+                    and_(Match.result == -1, MatchPlayer.team == -1)
+                )
+            ),
+
         )
     ).label('victories')
 )
+
 DRAW_STMT = (
     func.count(Match.id).filter(
         Match.result == 0
     ).label('draws')
 )
-LOSSES_STMT = (
+
+LOSSES_STMT  = (
     func.count(Match.id).filter(
         or_(
-            and_(Match.result == -1, MatchPlayer.team == 1),
-            and_(Match.result == 1, MatchPlayer.team == -1)
+            and_(
+                Match.game_mode.in_(["soloShowdown", "duoShowdown", "trioShowdown"]),
+                Match.result == -1
+            ),
+            and_(
+                Match.game_mode.notin_(["soloShowdown", "duoShowdown", "trioShowdown"]),
+                or_(
+                    and_(Match.result == -1, MatchPlayer.team == 1),
+                    and_(Match.result == 1, MatchPlayer.team == -1)
+                )
+            ),
+
         )
-    ).label('losses')
+    ).label('victories')
 )
 
 class StatsRepository:
@@ -130,7 +152,7 @@ class StatsRepository:
 
         return result.all()
 
-    async def get_top_ranked_brawlers(
+    async def get_top_brawlers(
             self,
             player_tag,
             game_type: str | None = None,
@@ -201,26 +223,32 @@ class StatsRepository:
         relative_result = (
             case(
                 (
-                    and_(
-                        Match.result == 1,
-                        player.team == 1
+                    Match.game_mode.in_(["soloShowdown", "duoShowdown", "trioShowdown"]),
+                    Match.result
+                ),
+                else_=case(
+                    (
+                        and_(
+                            Match.result == 1,
+                            player.team == 1
+                        ),
+                        1
                     ),
-                    1
-                ),
-                (
-                    and_(
-                        Match.result == -1,
-                        player.team == -1
+                    (
+                        and_(
+                            Match.result == -1,
+                            player.team == -1
+                        ),
+                        1
                     ),
-                    1
-                ),
-                (
-                    Match.result == 0,
-                    0
-                ),
-                else_=-1
+                    (
+                        Match.result == 0,
+                        0
+                    ),
+                    else_=-1
+                )
             )
-        ).label('result')
+        ).label("result")
 
         is_star_player = (
             (Match.star_player == player_tag)

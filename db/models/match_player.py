@@ -1,4 +1,4 @@
-from sqlalchemy import String, ForeignKey
+from sqlalchemy import String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -28,3 +28,12 @@ class MatchPlayer(Base):
             f"brawler='{self.brawler}'"
             f")"
         )
+
+
+    __table_args__ = (
+        UniqueConstraint(
+            "match_id",
+            "player_tag",
+            name="uq_match_player"
+        ),
+    )

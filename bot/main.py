@@ -24,13 +24,15 @@ from bot.keyboards import (
     setup_menu,
     main_menu_keyboard,
     ranked_menu_keyboard,
-    back_keyboard_row,
+    ladder_menu_keyboard,
     history_menu_keyboard,
+    back_keyboard_row,
     slider_keyboard_row,
 )
 
 from collector.api import BrawlAPI, api_context
 from db.session import SessionLocal
+from image_generation.views.main_ladder_generator import create_main_ladder_img
 from repositories.account_repository import AccountRepository
 from repositories.user_repository import UserRepository
 
@@ -312,6 +314,46 @@ async def ranked_by_mode_gen_renderer(state, callback: CallbackQuery, key, stack
     await send_img(img, callback, ranked_menu_keyboard())
 
 
+async def ladder_menu_renderer(state, callback: CallbackQuery, key, stack):
+    print(f'ladder_menu_renderer()')
+    if callback.data != 'back':
+        stack.append(
+            {
+                'view': callback.data,
+                'params': {}
+            }
+        )
+    print(inline_mode_state[key])
+    await callback.bot.edit_message_media(
+        inline_message_id=callback.inline_message_id,
+        media=InputMediaPhoto(
+            media=f"https://wdraft.online/images/black.png",
+        ),
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=ladder_menu_keyboard()
+        )
+    )
+
+
+async def ladder_by_rank_gen_renderer(state, callback: CallbackQuery, key, stack):
+    print(f'ladder_by_rank_gen_renderer()')
+    if stack[-1]['view'] != 'LADDER_MENU':
+        stack.pop()
+    stack.append(
+        {
+            'view': callback.data,
+            'params': {}
+        }
+    )
+    print(inline_mode_state[key])
+
+    player_tag = stack[0]['params']['chosen_tag']
+    account = await get_or_fetch_account(player_tag)
+
+    img = await create_main_ladder_img(account.player_tag, account.nickname)
+    await send_img(img, callback, ladder_menu_keyboard())
+
+
 async def history_menu_renderer(state, callback: CallbackQuery, key, stack):
     print(f'history_menu_renderer()')
     if callback.data != 'back':
@@ -455,8 +497,9 @@ if __name__ == "__main__":
         'RANKED_BY_BRAWLER_GEN_PREV': slideable_prev_renderer,
         'RANKED_BY_BRAWLER_GEN_NEXT': slideable_next_renderer,
         #
-        # # ladder
-        # 'LADDER_MENU': profile_choice_renderer,
+        # ladder
+        'LADDER_MENU': ladder_menu_renderer,
+        'LADDER_BY_RANK_GEN': ladder_by_rank_gen_renderer,
         #
         #history
         'HISTORY_MENU': history_menu_renderer,

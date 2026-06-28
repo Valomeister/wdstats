@@ -336,9 +336,6 @@ def round_img(
     return result
 
 
-from PIL import Image
-
-
 def gradient_rect(
     size,
     color=(0, 0, 0),
@@ -423,8 +420,6 @@ def paste_icon_and_text(canvas, draw, icon, text, font, gap, center_xy=None, sta
         fill='white',
         side='left'
     )
-
-from PIL import Image, ImageDraw, ImageFont
 
 
 def draw_clipped_text(

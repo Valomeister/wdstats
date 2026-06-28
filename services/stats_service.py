@@ -17,16 +17,34 @@ class StatsService:
             return await repo.get_stats(tag, 'soloRanked')
 
     @staticmethod
+    async def get_ladder_stats(tag):
+        async with SessionLocal() as session:
+            repo = StatsRepository(session)
+            return await repo.get_stats(tag, 'ranked')
+
+    @staticmethod
     async def get_ranked_stats_by_ranks(tag):
         async with SessionLocal() as session:
             repo = StatsRepository(session)
             return await repo.get_ranked_stats_by_ranks(tag)
 
     @staticmethod
+    async def get_ladder_stats_by_trophy_ranges(tag):
+        async with SessionLocal() as session:
+            repo = StatsRepository(session)
+            return await repo.get_ladder_stats_by_trophy_ranges(tag)
+
+    @staticmethod
     async def get_top_ranked_brawlers(tag, lim):
         async with SessionLocal() as session:
             repo = StatsRepository(session)
-            return await repo.get_top_ranked_brawlers(tag, lim=lim)
+            return await repo.get_top_ranked_brawlers(tag, game_type='soloRanked', lim=lim)
+
+    @staticmethod
+    async def get_top_ladder_brawlers(tag, lim):
+        async with SessionLocal() as session:
+            repo = StatsRepository(session)
+            return await repo.get_top_ranked_brawlers(tag, game_type='ranked', lim=lim)
 
     @staticmethod
     async def get_ranked_stats_by_modes(tag):
@@ -90,3 +108,4 @@ class StatsService:
         async with SessionLocal() as session:
             repo = StatsRepository(session)
             return await repo.get_detailed_matches(tag, limit=limit, offset=offset)
+

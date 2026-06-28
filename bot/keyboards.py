@@ -44,7 +44,7 @@ def ranked_menu_keyboard():
         [
             [
                 InlineKeyboardButton(
-                    text="By rank",
+                    text="Main",
                     callback_data="RANKED_BY_RANK_GEN"
                 ),
                 InlineKeyboardButton(
@@ -55,6 +55,26 @@ def ranked_menu_keyboard():
                     text="By brawler",
                     callback_data="RANKED_BY_BRAWLER_GEN"
                 )
+            ],
+            back_keyboard_row()
+        ]
+
+def ladder_menu_keyboard():
+    return \
+        [
+            [
+                InlineKeyboardButton(
+                    text="Main",
+                    callback_data="LADDER_BY_RANK_GEN"
+                ),
+                # InlineKeyboardButton(
+                #     text="By mode",
+                #     callback_data="LADDER_BY_MODE_GEN"
+                # ),
+                # InlineKeyboardButton(
+                #     text="By brawler",
+                #     callback_data="LADDER_BY_BRAWLER_GEN"
+                # )
             ],
             back_keyboard_row()
         ]

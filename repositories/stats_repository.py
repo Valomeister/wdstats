@@ -80,6 +80,36 @@ class StatsRepository:
 
         return result.all()
 
+    async def get_ladder_stats_by_trophy_ranges(self, player_tag):
+        trophy_range = (
+            func.least(func.floor(MatchPlayer.trophies / 200), 15)
+            .label('start')
+        )
+
+        stmt = (
+            select(
+                trophy_range,
+                func.count(Match.id).label('matches'),
+                VICTORIES_STMT,
+                DRAW_STMT,
+                LOSSES_STMT
+            )
+            .join(MatchPlayer)
+            .where(
+                and_(
+                    MatchPlayer.player_tag == player_tag,
+                    Match.game_type == 'ranked',
+                    MatchPlayer.trophies < 3000
+                )
+            )
+            .group_by(trophy_range)
+            .order_by(trophy_range)
+        )
+
+        result = await self.session.execute(stmt)
+
+        return result.all()
+
     async def get_ranked_stats_by_modes(self, player_tag):
         stmt = (
             select(
@@ -100,7 +130,15 @@ class StatsRepository:
 
         return result.all()
 
-    async def get_top_ranked_brawlers(self, player_tag, lim=3):
+    async def get_top_ranked_brawlers(
+            self,
+            player_tag,
+            game_type: str | None = None,
+            lim=3):
+        filters = [MatchPlayer.player_tag == player_tag]
+        if game_type:
+            filters.append(Match.game_type == game_type)
+
         stmt = (
             select(
                 MatchPlayer.brawler,
@@ -110,9 +148,7 @@ class StatsRepository:
                 LOSSES_STMT
             )
             .join(MatchPlayer)
-            .where(
-                and_(MatchPlayer.player_tag == player_tag, Match.game_type == 'soloRanked')
-            )
+            .where(*filters)
             .group_by(MatchPlayer.brawler)
             .order_by(func.count(MatchPlayer.brawler).desc())
             .limit(lim)

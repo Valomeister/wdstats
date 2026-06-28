@@ -9,7 +9,6 @@ from services.stats_service import StatsService
 
 
 async def gen_main_ranked_img(ranked_stats, ranked_stats_by_ranks, top_ranked_brawlers, player_nickname):
-    print("LOOP", id(asyncio.get_running_loop()))
     total_games, wins, draws, losses = ranked_stats
     per_rank_dict = {i[0]: i[1:] for i in ranked_stats_by_ranks}
     print(ranked_stats_by_ranks)
@@ -102,6 +101,5 @@ async def fetch_data_for_main_ranked(tag):
 
 
 async def create_main_ranked_img(tag, player_nickname):
-    print("LOOP", id(asyncio.get_running_loop()))
     ranked_stats, ranked_stats_by_ranks, top_ranked_brawlers = await(fetch_data_for_main_ranked(tag))
     return await gen_main_ranked_img(ranked_stats, ranked_stats_by_ranks, top_ranked_brawlers, player_nickname)

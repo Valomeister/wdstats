@@ -9,7 +9,7 @@ logger = setup_logging('collector')
 RESULT_CODES = {'defeat': -1, 'draw': 0, 'victory': 1}
 
 
-def parse_showdown_match(item):
+def parse_showdown_match(item, request_tag):
     game_time = item['battleTime']
     battle = item['battle']
 
@@ -18,13 +18,6 @@ def parse_showdown_match(item):
     else:
         teams = battle['teams']
 
-    if battle.get('trophyChange', 0) > 0:
-        result = 1
-    elif battle.get('trophyChange', 0) < 0:
-        result = -1
-    else:
-        result = 0
-
     cur_game = {
         'match_time': item['battleTime'],
         'game_dt': datetime.strptime(game_time, "%Y%m%dT%H%M%S.%fZ"),
@@ -32,7 +25,7 @@ def parse_showdown_match(item):
         'game_map': item['event']['map'],
         'game_type': battle['type'],
         'star_player': None,
-        'result': result,
+        'result': 0, # doesnt make sense for showdown
         'players': []
     }
 
@@ -47,13 +40,15 @@ def parse_showdown_match(item):
 
     for t, team in enumerate(teams):
         for player in team:
+            trophy_change = battle.get('trophyChange', 0) if player['tag'] == request_tag else None
             cur_game['players'].append(
                 {
                     'team': t + 1,
                     'player_tag': player['tag'],
                     'player_nickname': player['name'],
                     'brawler': player['brawler']['name'],
-                    'trophies': player['brawler']['trophies']
+                    'trophies': player['brawler']['trophies'],
+                    'trophy_change': trophy_change
                 }
             )
 
@@ -99,13 +94,15 @@ def parse_trio_match(item, request_tag):
 
     for t, team in enumerate(teams):
         for player in team:
+            trophy_change = battle.get('trophyChange', 0) if player['tag'] == request_tag else None
             cur_game['players'].append(
                 {
                     'team': 1 if t == current_team_idx else -1,
                     'player_tag': player['tag'],
                     'player_nickname': player['name'],
                     'brawler': player['brawler']['name'],
-                    'trophies': player['brawler']['trophies']
+                    'trophies': player['brawler']['trophies'],
+                    'trophy_change': trophy_change
                 }
             )
 
@@ -128,7 +125,7 @@ def parse_battlelog(raw_json, request_tag):
                 continue
 
             if item['event']['mode'] in ['soloShowdown', 'duoShowdown', 'trioShowdown']:
-                parsed_match = parse_showdown_match(item)
+                parsed_match = parse_showdown_match(item, request_tag)
             else:
                 parsed_match = parse_trio_match(item, request_tag)
 

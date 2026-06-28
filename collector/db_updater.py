@@ -35,8 +35,11 @@ async def update_db(parsed_battlelog, request_tag):
                         for battle in parsed_battlelog
                     ]
                 )
-                .on_conflict_do_nothing(
-                    index_elements=["unique_hash"]
+                .on_conflict_do_update(
+                    index_elements=["unique_hash"],
+                    set_={
+                        "unique_hash": Match.unique_hash,
+                    },
                 )
                 .returning(
                     Match.id,
@@ -67,9 +70,21 @@ async def update_db(parsed_battlelog, request_tag):
                     )
 
             if players:
-                await session.execute(
-                    insert(MatchPlayer).values(players)
+                stmt = (
+                    insert(MatchPlayer)
+                    .values(players)
+                    .on_conflict_do_update(
+                        index_elements=["match_id", "player_tag"],
+                        set_={
+                            "trophy_change": func.coalesce(
+                                insert(MatchPlayer).excluded.trophy_change,
+                                MatchPlayer.trophy_change,
+                            )
+                        },
+                    )
                 )
+
+                await session.execute(stmt)
 
             account.last_match_saved = max(
                 b['game_dt'] for b in parsed_battlelog

@@ -14,6 +14,7 @@ class MatchPlayer(Base):
     brawler: Mapped[str] = mapped_column(String(32))
     trophies: Mapped[int]
     match_id: Mapped[int] = mapped_column(ForeignKey('matches.id'))
+    trophy_change: Mapped[int] = mapped_column(nullable=True)
 
     match: Mapped['Match'] = relationship(back_populates='players')
 

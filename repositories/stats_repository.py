@@ -9,7 +9,7 @@ VICTORIES_STMT = (
         or_(
             and_(
                 Match.game_mode.in_(["soloShowdown", "duoShowdown", "trioShowdown"]),
-                Match.result == 1
+                MatchPlayer.trophy_change > 0
             ),
             and_(
                 Match.game_mode.notin_(["soloShowdown", "duoShowdown", "trioShowdown"]),
@@ -25,7 +25,20 @@ VICTORIES_STMT = (
 
 DRAW_STMT = (
     func.count(Match.id).filter(
-        Match.result == 0
+        or_(
+            and_(
+                Match.game_mode.in_(["soloShowdown", "duoShowdown", "trioShowdown"]),
+                or_(
+                    MatchPlayer.trophy_change == 0,
+                    MatchPlayer.trophy_change.is_(None) # todo add "UNKNOWN_STMT" for sd where trophy_change is None
+                )
+            ),
+            and_(
+                Match.game_mode.notin_(["soloShowdown", "duoShowdown", "trioShowdown"]),
+                Match.result == 0
+            ),
+
+        )
     ).label('draws')
 )
 
@@ -34,7 +47,7 @@ LOSSES_STMT  = (
         or_(
             and_(
                 Match.game_mode.in_(["soloShowdown", "duoShowdown", "trioShowdown"]),
-                Match.result == -1
+                MatchPlayer.trophy_change < 0
             ),
             and_(
                 Match.game_mode.notin_(["soloShowdown", "duoShowdown", "trioShowdown"]),
@@ -263,7 +276,8 @@ class StatsRepository:
                 is_star_player,
                 relative_result,
                 player.trophies,
-                player.brawler
+                player.brawler,
+                player.trophy_change
             )
             .join(player)
             .where(

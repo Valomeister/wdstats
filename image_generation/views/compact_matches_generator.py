@@ -90,7 +90,16 @@ async def gen_compact_matches_img(stats, matches, total_matches_count, player_ni
         canvas.paste(brawler_icon, (brawler_start_x, brawler_start_y), brawler_icon)
 
         # result color
-        result = matches[rel_i][4]
+        if game_mode in ("soloShowdown", "duoShowdown", "trioShowdown"):
+            trophy_change = matches[rel_i][7]
+            if trophy_change is not None and trophy_change > 0:
+                result = 1
+            elif trophy_change is not None and trophy_change < 0:
+                result = -1
+            else:
+                result = 0
+        else:
+            result = matches[rel_i][4]
         draw.rounded_rectangle(
             (brawler_end_x, brawler_start_y, card_end_x, card_end_y),
             fill=result_colors[result],

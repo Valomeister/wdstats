@@ -219,9 +219,8 @@ class StatsRepository:
     async def count_matches(self, player_tag):
         stmt = (
             select(
-                func.count(Match.id)
+                func.count(MatchPlayer.id)
             )
-            .join(MatchPlayer)
             .where(
                 MatchPlayer.player_tag == player_tag
             )
@@ -277,6 +276,13 @@ class StatsRepository:
             )
             .options(
                 selectinload(Match.players)
+                .load_only(
+                    MatchPlayer.player_tag,
+                    MatchPlayer.brawler,
+                    MatchPlayer.team,
+                    MatchPlayer.player_nickname,
+                    MatchPlayer.trophies,
+                )
             )
             .order_by(
                 Match.match_time.desc()

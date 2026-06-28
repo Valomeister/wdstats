@@ -34,12 +34,11 @@ from db.session import SessionLocal
 from repositories.account_repository import AccountRepository
 from repositories.user_repository import UserRepository
 
-from services.image_generation.image_service import (
-    create_main_ranked_img,
-    create_ranked_img_by_modes,
-    create_ranked_img_by_brawlers,
-    create_matches_img, create_detailed_matches_img,
-)
+from image_generation.views.main_ranked_generator import create_main_ranked_img
+from image_generation.views.ranked_by_mode_generator import create_ranked_img_by_mode
+from image_generation.views.ranked_by_brawler_generator import create_ranked_img_by_brawler
+from image_generation.views.compact_matches_generator import create_compact_matches_img
+from image_generation.views.detailed_matches_generator import create_detailed_matches_img
 
 from aiogram.types import (
     InlineQuery,
@@ -229,6 +228,7 @@ async def handler(callback: CallbackQuery):
 
     key = (callback.from_user.id, callback.inline_message_id)
     stack = inline_mode_state[key]
+    print(stack)
 
     if callback.data == 'back':
         print('back')
@@ -308,7 +308,7 @@ async def ranked_by_mode_gen_renderer(state, callback: CallbackQuery, key, stack
     player_tag = stack[0]['params']['chosen_tag']
     account = await get_or_fetch_account(player_tag)
 
-    img = await create_ranked_img_by_modes(account.player_tag, account.nickname)
+    img = await create_ranked_img_by_mode(account.player_tag, account.nickname)
     await send_img(img, callback, ranked_menu_keyboard())
 
 
@@ -430,7 +430,7 @@ if __name__ == "__main__":
 
     slideable_params = {
         'HISTORY_COMPACT_GEN': {
-            'img_create_func': create_matches_img,
+            'img_create_func': create_compact_matches_img,
             'parent_view': 'HISTORY_MENU'
         },
         'HISTORY_DETAILED_GEN': {
@@ -438,7 +438,7 @@ if __name__ == "__main__":
             'parent_view': 'HISTORY_MENU'
         },
         'RANKED_BY_BRAWLER_GEN': {
-            'img_create_func': create_ranked_img_by_brawlers,
+            'img_create_func': create_ranked_img_by_brawler,
             'parent_view': 'RANKED_MENU'
         }
     }

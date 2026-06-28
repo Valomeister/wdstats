@@ -1,8 +1,10 @@
+import time
+from functools import wraps
 from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from services.image_generation.config import lp
+from image_generation.layout_config import lp
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
@@ -198,9 +200,9 @@ def draw_bar(draw, pos, total_games, wins, draws, losses, font):
     if wins and (draws or losses):
         draw.rectangle(
             (
-                inner_pos[0] + wins_bar_width - lp.inner_border_width / 2,
+                inner_pos[0] + wins_bar_width - lp.bar_inner_border_width / 2,
                 inner_pos[1],
-                inner_pos[0] + wins_bar_width + lp.inner_border_width / 2,
+                inner_pos[0] + wins_bar_width + lp.bar_inner_border_width / 2,
                 inner_pos[1] + bar_inner_height + 2
             ),
             fill="#000000"
@@ -208,9 +210,9 @@ def draw_bar(draw, pos, total_games, wins, draws, losses, font):
     if draws and losses:
         draw.rectangle(
             (
-                inner_pos[0] + bar_inner_width - losses_bar_width - lp.inner_border_width / 2,
+                inner_pos[0] + bar_inner_width - losses_bar_width - lp.bar_inner_border_width / 2,
                 inner_pos[1],
-                inner_pos[0] + bar_inner_width - losses_bar_width + lp.inner_border_width / 2,
+                inner_pos[0] + bar_inner_width - losses_bar_width + lp.bar_inner_border_width / 2,
                 inner_pos[1] + bar_inner_height + 2
             ),
             fill="#000000"
@@ -228,23 +230,22 @@ def load_ranked_ranks(folder_path, up_to, height):
 
     return ranked_icons
 
-def load_brawler_icons(folder_path):
+def load_brawler_icons(folder_path, size):
     icons = {}
     for file in Path(folder_path).iterdir():
         if file.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
-            img = Image.open(file).resize((lp.brawler_icons_height, lp.brawler_icons_height))
+            img = Image.open(file).resize(size)
             brawler_name = file.name[:file.name.index('.')]
             icons[brawler_name] = img
 
     return icons
 
-def load_game_mode_icons(folder_path):
+def load_game_mode_icons(folder_path, target_h):
     icons = {}
     for file in Path(folder_path).iterdir():
         if file.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}:
             img = Image.open(file)
             initial_w, initial_h = img.size
-            target_h = lp.mode_icons_height
             target_w = int(initial_w / initial_h * target_h)
             mode_name = file.name[:file.name.index('.')]
             icons[mode_name] = img.resize((target_w, target_h)).convert('RGBA')
@@ -478,3 +479,5 @@ def draw_clipped_text(
     )
 
     canvas.paste(cropped, position, cropped)
+
+

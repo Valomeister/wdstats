@@ -67,14 +67,14 @@ def ladder_menu_keyboard():
                     text="Main",
                     callback_data="LADDER_BY_RANK_GEN"
                 ),
-                # InlineKeyboardButton(
-                #     text="By mode",
-                #     callback_data="LADDER_BY_MODE_GEN"
-                # ),
-                # InlineKeyboardButton(
-                #     text="By brawler",
-                #     callback_data="LADDER_BY_BRAWLER_GEN"
-                # )
+                InlineKeyboardButton(
+                    text="By mode",
+                    callback_data="LADDER_BY_MODE_GEN"
+                ),
+                InlineKeyboardButton(
+                    text="By brawler",
+                    callback_data="LADDER_BY_BRAWLER_GEN"
+                )
             ],
             back_keyboard_row()
         ]

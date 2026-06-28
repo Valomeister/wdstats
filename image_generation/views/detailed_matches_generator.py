@@ -225,7 +225,7 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, player_n
             else:
                 print('undefined', matches[rel_i][2])
 
-    if page * (ROW_CAPACITY * COL_CAPACITY) <= total_matches_count:
+    if page * (ROW_CAPACITY * COL_CAPACITY) < total_matches_count:
         grad = gradient_rect((area_outer_width, grad_height))
         canvas.paste(grad, (offset_x, lp.screen_height - grad_height), grad)
 

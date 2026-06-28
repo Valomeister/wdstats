@@ -58,7 +58,7 @@ LOSSES_STMT  = (
             ),
 
         )
-    ).label('victories')
+    ).label('losses')
 )
 
 class StatsRepository:
@@ -145,7 +145,17 @@ class StatsRepository:
 
         return result.all()
 
-    async def get_ranked_stats_by_modes(self, player_tag):
+    async def get_stats_by_modes(
+        self,
+        player_tag,
+        game_type: str | None = None
+    ):
+        filters = [
+            MatchPlayer.player_tag == player_tag
+        ]
+        if game_type:
+            filters.append(Match.game_type == game_type)
+
         stmt = (
             select(
                 Match.game_mode,
@@ -155,9 +165,7 @@ class StatsRepository:
                 LOSSES_STMT
             )
             .join(MatchPlayer)
-            .where(
-                and_(MatchPlayer.player_tag == player_tag, Match.game_type == 'soloRanked')
-            )
+            .where(*filters)
             .group_by(Match.game_mode)
         )
 
@@ -193,7 +201,18 @@ class StatsRepository:
 
         return result.all()
 
-    async def get_top_ranked_brawlers_by_modes(self, player_tag, lim=3):
+    async def get_top_brawlers_by_modes(
+        self,
+        player_tag,
+        game_type: str | None = None,
+        lim=3
+    ):
+        filters = [
+            MatchPlayer.player_tag == player_tag
+        ]
+        if game_type:
+            filters.append(Match.game_type == game_type)
+
         stats_subq = (
             select(
                 Match.game_mode,
@@ -204,9 +223,7 @@ class StatsRepository:
                 LOSSES_STMT
             )
             .join(MatchPlayer)
-            .where(
-                and_(MatchPlayer.player_tag == player_tag, Match.game_type == 'soloRanked')
-            )
+            .where(*filters)
             .group_by(Match.game_mode, MatchPlayer.brawler)
         ).subquery()
 

@@ -32,6 +32,8 @@ from bot.keyboards import (
 
 from collector.api import BrawlAPI, api_context
 from db.session import SessionLocal
+from image_generation.views.ladder_by_brawler_generator import create_ladder_img_by_brawler
+from image_generation.views.ladder_by_mode_generator import create_ladder_img_by_mode
 from image_generation.views.main_ladder_generator import create_main_ladder_img
 from repositories.account_repository import AccountRepository
 from repositories.user_repository import UserRepository
@@ -482,7 +484,15 @@ if __name__ == "__main__":
         'RANKED_BY_BRAWLER_GEN': {
             'img_create_func': create_ranked_img_by_brawler,
             'parent_view': 'RANKED_MENU'
-        }
+        },
+        'LADDER_BY_MODE_GEN': {
+            'img_create_func': create_ladder_img_by_mode,
+            'parent_view': 'LADDER_MENU'
+        },
+        'LADDER_BY_BRAWLER_GEN': {
+            'img_create_func': create_ladder_img_by_brawler,
+            'parent_view': 'LADDER_MENU'
+        },
     }
 
     renderers = {
@@ -496,11 +506,17 @@ if __name__ == "__main__":
         'RANKED_BY_BRAWLER_GEN': slideable_renderer,
         'RANKED_BY_BRAWLER_GEN_PREV': slideable_prev_renderer,
         'RANKED_BY_BRAWLER_GEN_NEXT': slideable_next_renderer,
-        #
+
         # ladder
         'LADDER_MENU': ladder_menu_renderer,
         'LADDER_BY_RANK_GEN': ladder_by_rank_gen_renderer,
-        #
+        'LADDER_BY_MODE_GEN': slideable_renderer,
+        'LADDER_BY_MODE_GEN_PREV': slideable_prev_renderer,
+        'LADDER_BY_MODE_GEN_NEXT': slideable_next_renderer,
+        'LADDER_BY_BRAWLER_GEN': slideable_renderer,
+        'LADDER_BY_BRAWLER_GEN_PREV': slideable_prev_renderer,
+        'LADDER_BY_BRAWLER_GEN_NEXT': slideable_next_renderer,
+
         #history
         'HISTORY_MENU': history_menu_renderer,
         'HISTORY_COMPACT_GEN': slideable_renderer,

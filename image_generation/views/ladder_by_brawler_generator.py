@@ -9,18 +9,18 @@ from image_generation.views.template_generator import get_template
 from services.stats_service import StatsService
 
 
-async def gen_ranked_img_by_brawler(ranked_stats, top_ranked_brawlers, player_nickname, page):
+async def gen_ladder_img_by_brawler(ladder_stats, top_ladder_brawlers, player_nickname, page):
     # top_ranked_brawlers = (top_ranked_brawlers * (150 // len(top_ranked_brawlers)))[:104] # for tests
-    total_games, wins, draws, losses = ranked_stats
+    total_games, wins, draws, losses = ladder_stats
 
-    print(top_ranked_brawlers)
+    print(top_ladder_brawlers)
     print(total_games, wins, draws, losses)
 
-    canvas, draw = await get_template(ranked_stats, player_nickname, 'ranked')
+    canvas, draw = await get_template(ladder_stats, player_nickname, 'ladder')
 
     row_capacity = 4
     col_capacity = 8
-    num_of_pages = math.ceil(len(top_ranked_brawlers) / (row_capacity * col_capacity))
+    num_of_pages = math.ceil(len(top_ladder_brawlers) / (row_capacity * col_capacity))
     border_width = 6
     inner_margin = 18 # between cards
     badge_width = 170
@@ -39,7 +39,7 @@ async def gen_ranked_img_by_brawler(ranked_stats, top_ranked_brawlers, player_ni
     canvas.paste(DARK_BG, (offset_x, 0), DARK_BG)
 
     iteration_start = (page - 1) * (row_capacity * col_capacity) - row_capacity
-    iteration_end = min(len(top_ranked_brawlers), page * (row_capacity * col_capacity) + row_capacity)
+    iteration_end = min(len(top_ladder_brawlers), page * (row_capacity * col_capacity) + row_capacity)
     for abs_i in range(iteration_start, iteration_end):
         if abs_i < 0:
             continue
@@ -60,7 +60,7 @@ async def gen_ranked_img_by_brawler(ranked_stats, top_ranked_brawlers, player_ni
         )
 
         # brawler
-        normalized_name = normalize_name(top_ranked_brawlers[abs_i][0])
+        normalized_name = normalize_name(top_ladder_brawlers[abs_i][0])
         placeholder_icon = ROUNDED_BRAWLER_ICONS['placeholder']
         brawler_icon = ROUNDED_BRAWLER_ICONS.get(normalized_name, placeholder_icon)
         brawler_center_x = card_start_x + border_width + icon_w / 2
@@ -95,7 +95,7 @@ async def gen_ranked_img_by_brawler(ranked_stats, top_ranked_brawlers, player_ni
         draw_text_align_to_side(
             draw,
             (badge_start_x, total_brawler_center_y, badge_end_x, total_brawler_center_y),
-            f'{top_ranked_brawlers[abs_i][1]} games',
+            f'{top_ladder_brawlers[abs_i][1]} games',
             inter20,
             fill='white',
             stroke_width=4,
@@ -103,10 +103,10 @@ async def gen_ranked_img_by_brawler(ranked_stats, top_ranked_brawlers, player_ni
         )
 
         # percentages
-        if top_ranked_brawlers[abs_i][1]:
-            win_percent = round(top_ranked_brawlers[abs_i][2] / top_ranked_brawlers[abs_i][1] * 100)
-            draw_percent = round(top_ranked_brawlers[abs_i][3] / top_ranked_brawlers[abs_i][1] * 100)
-            loss_percent = round(top_ranked_brawlers[abs_i][4] / top_ranked_brawlers[abs_i][1] * 100)
+        if top_ladder_brawlers[abs_i][1]:
+            win_percent = round(top_ladder_brawlers[abs_i][2] / top_ladder_brawlers[abs_i][1] * 100)
+            draw_percent = round(top_ladder_brawlers[abs_i][3] / top_ladder_brawlers[abs_i][1] * 100)
+            loss_percent = round(top_ladder_brawlers[abs_i][4] / top_ladder_brawlers[abs_i][1] * 100)
         else:
             win_percent = draw_percent = loss_percent = 0
         percentage_center_y = int(badge_start_y + (badge_inner_height / 3) * 2.5)
@@ -136,26 +136,26 @@ async def gen_ranked_img_by_brawler(ranked_stats, top_ranked_brawlers, player_ni
             fill=result_colors[0],
             stroke_width=4,
         )
-    if page * (row_capacity * col_capacity) < len(top_ranked_brawlers):
+    if page * (row_capacity * col_capacity) < len(top_ladder_brawlers):
         grad = gradient_rect((area_outer_width, grad_height))
         canvas.paste(grad, (offset_x, lp.screen_height - grad_height), grad)
 
-    if page > 1 and (page - 1) * (row_capacity * col_capacity) + 1 <= len(top_ranked_brawlers):
+    if page > 1 and (page - 1) * (row_capacity * col_capacity) + 1 <= len(top_ladder_brawlers):
         grad = gradient_rect((area_outer_width, grad_height), start_alpha=255, end_alpha=0)
         canvas.paste(grad, (offset_x, 0), grad)
 
     return canvas, num_of_pages
 
 
-async def fetch_data_for_ranked_by_brawlers(tag):
-    ranked_stats, top_ranked_brawlers = await asyncio.gather(
-        StatsService.get_ranked_stats(tag),
-        StatsService.get_top_ranked_brawlers(tag, lim=1000), # arbitrary lim grater than the amount of brawlers
+async def fetch_data_for_ladder_by_brawlers(tag):
+    ladder_stats, top_ladder_brawlers = await asyncio.gather(
+        StatsService.get_ladder_stats(tag),
+        StatsService.get_top_ladder_brawlers(tag, lim=1000), # arbitrary lim grater than the amount of brawlers
     )
 
-    return ranked_stats, top_ranked_brawlers
+    return ladder_stats, top_ladder_brawlers
 
 
-async def create_ranked_img_by_brawler(tag, player_nickname, page):
-    ranked_stats, top_ranked_brawlers = await(fetch_data_for_ranked_by_brawlers(tag))
-    return await gen_ranked_img_by_brawler(ranked_stats, top_ranked_brawlers, player_nickname, page)
+async def create_ladder_img_by_brawler(tag, player_nickname, page):
+    ladder_stats, top_ladder_brawlers = await(fetch_data_for_ladder_by_brawlers(tag))
+    return await gen_ladder_img_by_brawler(ladder_stats, top_ladder_brawlers, player_nickname, page)

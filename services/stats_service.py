@@ -50,7 +50,7 @@ class StatsService:
     async def get_ranked_stats_by_modes(tag):
         async with SessionLocal() as session:
             repo = StatsRepository(session)
-            ranked_stats_by_modes = await repo.get_ranked_stats_by_modes(tag)
+            ranked_stats_by_modes = await repo.get_stats_by_modes(tag, 'soloRanked')
 
         ranked_stats_by_modes_dict = {i[0]: i[1:] for i in ranked_stats_by_modes}
         result = {
@@ -61,10 +61,20 @@ class StatsService:
         return result
 
     @staticmethod
+    async def get_ladder_stats_by_modes(tag):
+        async with SessionLocal() as session:
+            repo = StatsRepository(session)
+            ladder_stats_by_modes = await repo.get_stats_by_modes(tag, 'ranked')
+
+        ladder_stats_by_modes_dict = {i[0]: i[1:] for i in ladder_stats_by_modes}
+
+        return ladder_stats_by_modes_dict
+
+    @staticmethod
     async def get_top_ranked_brawlers_by_modes(tag):
         async with SessionLocal() as session:
             repo = StatsRepository(session)
-            top_ranked_brawlers_by_modes = await repo.get_top_ranked_brawlers_by_modes(tag, lim=3)
+            top_ranked_brawlers_by_modes = await repo.get_top_brawlers_by_modes(tag, 'soloRanked', lim=3)
 
         top_brawlers_dict = defaultdict(list)
 
@@ -76,6 +86,26 @@ class StatsService:
             mode: top_brawlers_dict.get(mode, [])
             for mode in REQUIRED_MODES
         }
+
+        # fill in if there are fewer than 3 brawlers
+        for mode, items in top_brawlers_dict.items():
+            last_rank = items[-1][-1] if items else 0
+            for i in range(last_rank + 1, 4):
+                items.append(['PLACEHOLDER', 0, 0, 0, 0, i])
+
+        return top_brawlers_dict
+
+    @staticmethod
+    async def get_top_ladder_brawlers_by_modes(tag):
+        async with SessionLocal() as session:
+            repo = StatsRepository(session)
+            top_ranked_brawlers_by_modes = await repo.get_top_brawlers_by_modes(tag, 'ranked', lim=3)
+
+        top_brawlers_dict = defaultdict(list)
+
+        for el in top_ranked_brawlers_by_modes:
+            mode, brawler, stats = el[0], el[1], el[2:]
+            top_brawlers_dict[mode].append([brawler, *stats])
 
         # fill in if there are fewer than 3 brawlers
         for mode, items in top_brawlers_dict.items():

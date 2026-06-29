@@ -117,7 +117,7 @@ def parse_trio_match(item, request_tag):
 def parse_battlelog(raw_json, request_tag):
     parsed = []
     unparsable = []
-    showdown_counter = friendly_counter = 0
+    friendly_counter = 0
     for item in raw_json['items']:
         try:
             if item['battle']['type'] == 'friendly':
@@ -138,8 +138,8 @@ def parse_battlelog(raw_json, request_tag):
 
     if unparsable:
         logger.warning(f'Could not parse {len(unparsable)} matches for player {request_tag}')
-    if showdown_counter or friendly_counter:
-        logger.info(f'skipped {showdown_counter} showdown and {friendly_counter} friendly matches for player {request_tag}')
+    if friendly_counter:
+        logger.info(f'skipped {friendly_counter} friendly matches for player {request_tag}')
 
     return parsed
 

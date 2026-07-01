@@ -2,11 +2,28 @@
 Service for stats_repository.
 Distinct session for each request for async (asyncio.gather(...))
 """
+import json
+import os
 from collections import defaultdict
+
+from dotenv import load_dotenv
 
 from db.session import SessionLocal
 from image_generation.layout_config import REQUIRED_MODES
 from repositories.stats_repository import StatsRepository
+
+import redis.asyncio as redis
+
+
+load_dotenv()
+
+
+redis_client = redis.from_url(
+    os.getenv('REDIS_URL'),
+    decode_responses=False
+)
+
+CACHE_TTL = 120
 
 
 class StatsService:
@@ -117,9 +134,26 @@ class StatsService:
 
     @staticmethod
     async def get_overall_stats(tag):
+        key = f'overall_stats:{tag}'
+
+        cached_overall_stats = await redis_client.get(key)
+
+        if cached_overall_stats is not None:
+            print("returning cache for get_overall_stats()")
+            return json.loads(cached_overall_stats)
+        print("returning from db for get_overall_stats()")
+
         async with SessionLocal() as session:
             repo = StatsRepository(session)
-            return await repo.get_stats(tag)
+            stats = await repo.get_stats(tag)
+
+            await redis_client.set(
+                key,
+                json.dumps(list(stats)),
+                ex=CACHE_TTL
+            )
+
+            return stats
 
     @staticmethod
     async def get_matches(tag, limit, offset):
@@ -129,13 +163,95 @@ class StatsService:
 
     @staticmethod
     async def count_matches(tag):
+        key = f'matches_count:{tag}'
+
+        cached_matches_count = await redis_client.get(key)
+
+        if cached_matches_count is not None:
+            print("returning cache for count_matches()")
+            return int(cached_matches_count)
+        print("returning from db for count_matches()")
+
         async with SessionLocal() as session:
             repo = StatsRepository(session)
-            return await repo.count_matches(tag)
+            count = await repo.count_matches(tag)
+
+            await redis_client.set(
+                key,
+                count,
+                ex=CACHE_TTL
+            )
+
+            return count
 
     @staticmethod
     async def get_detailed_matches(tag, limit, offset):
+        keys = [
+            f"detailed_matches:{tag}:{i}"
+            for i in range(offset, offset + limit)
+        ]
+
+        cached_matches = await redis_client.mget(keys)
+
+        if all(cached_matches):
+            print("returning cache for get_detailed_matches()")
+
+            return [
+                json.loads(item)
+                for item in cached_matches
+            ]
+        print("returning from db for get_detailed_matches()")
+
         async with SessionLocal() as session:
             repo = StatsRepository(session)
-            return await repo.get_detailed_matches(tag, limit=limit, offset=offset)
+            padding = 9
+            padded_offset = max(0, offset - padding)
+            padded_limit = padding * 2 + 1
 
+            matches = await repo.get_detailed_matches(tag, limit=padded_limit, offset=padded_offset)
+            matches = [serialize_match(match) for match in matches]
+
+            pipe = redis_client.pipeline()
+
+            for i, match in enumerate(matches):
+                key = (
+                    f"detailed_matches:{tag}:{padded_offset + i}"
+                )
+
+                await pipe.set(
+                    key,
+                    json.dumps(match),
+                    ex=CACHE_TTL
+                )
+
+            await pipe.execute()
+
+            return matches
+
+
+def serialize_match(row):
+    match, *extra = row
+
+    return [
+        {
+            "id": match.id,
+            "match_time": match.match_time.isoformat(),
+            "game_type": match.game_type,
+            "game_mode": match.game_mode,
+            "game_map": match.game_map,
+            "result": match.result,
+
+            "players": [
+                {
+                    "player_tag": p.player_tag,
+                    "brawler": p.brawler,
+                    "team": p.team,
+                    "player_nickname": p.player_nickname,
+                    "trophies": p.trophies,
+                    "trophy_change": p.trophy_change,
+                }
+                for p in match.players
+            ],
+        },
+        *extra
+    ]

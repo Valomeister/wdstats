@@ -52,18 +52,18 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
     for rel_i in range(iteration_start, iteration_end):
         cur_player_team = None
         trophy_change = None
-        for p in matches[rel_i][0].players:
-            if p.player_tag == tag:
-                cur_player_team = p.team
-                trophy_change = p.trophy_change
+        for p in matches[rel_i][0]['players']:
+            if p['player_tag'] == tag:
+                cur_player_team = p['team']
+                trophy_change = p['trophy_change']
                 print(trophy_change)
                 break
         print(f'{cur_player_team = }')
         if cur_player_team == -1:
-            for p in matches[rel_i][0].players:
-                p.team *= -1
-        matches[rel_i][0].players.sort(
-            key=lambda x: (-x.team, -int(x.player_nickname == player_nickname))
+            for p in matches[rel_i][0]['players']:
+                p['team'] *= -1
+        matches[rel_i][0]['players'].sort(
+            key=lambda x: (-x['team'], -int(x['player_nickname'] == player_nickname))
         )
 
 
@@ -92,7 +92,7 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
         )
 
         # game_mode
-        game_mode = matches[rel_i][0].game_mode
+        game_mode = matches[rel_i][0]['game_mode']
         normalized_mode_name = normalize_name(game_mode)
         game_mode_icon = GAME_MODE_ICONS.get(normalized_mode_name, MODE_PLACEHOLDER)
         # game_mode_icon = random.choice(list(GAME_MODE_ICONS.values()))
@@ -107,7 +107,7 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
         draw_text_align_to_side(
             draw,
             (game_map_start_x, game_map_center_y, game_map_start_x, game_map_center_y),
-            matches[rel_i][0].game_map,
+            matches[rel_i][0]['game_map'],
             lilita30,
             2,
             gamemodes_colors.get(game_mode, '#fff'),
@@ -129,7 +129,8 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
 
         # time ago
         now = datetime.now(UTC).replace(tzinfo=None)
-        time_diff = format_datetime_diff(now, matches[rel_i][0].match_time)
+        then = datetime.fromisoformat(matches[rel_i][0]['match_time'])
+        time_diff = format_datetime_diff(now, then)
         draw_text_align_to_side(
             draw,
             (
@@ -187,7 +188,7 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
             4
         )
 
-        for player_n, player in enumerate(matches[rel_i][0].players):
+        for player_n, player in enumerate(matches[rel_i][0]['players']):
             team = player_n // 3
             pos_in_team = player_n % 3
 
@@ -197,7 +198,7 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
                 team_start_x = card_end_x - card_padding - 3 * icon_w - 2 * brawlers_margin
 
             # brawler
-            normalized_name = normalize_name(player.brawler)
+            normalized_name = normalize_name(player['brawler'])
             placeholder_icon = BIGGER_BRAWLER_ICONS['placeholder']
             brawler_icon = BIGGER_BRAWLER_ICONS.get(normalized_name, placeholder_icon)
             brawler_start_x = round(team_start_x + pos_in_team * (icon_w + brawlers_margin))
@@ -208,7 +209,7 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
             paste_image_with_border(canvas, draw, (brawler_start_x, brawler_start_y), brawler_icon, brawler_border_width)
 
             # nickname
-            nickname = player.player_nickname
+            nickname = player['player_nickname']
 
             nickname_img = await render_unicode(
                 nickname,
@@ -229,7 +230,7 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
 
             canvas.paste(nickname_img, (nickname_start_x, nickname_start_y), nickname_img)
 
-            if matches[rel_i][0].game_type == 'soloRanked':
+            if matches[rel_i][0]['game_type'] == 'soloRanked':
                 # ranked bg
                 neg_offset = 10
                 trophy_bg_h = 30
@@ -244,8 +245,8 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
 
                 trophy_info_start_x = int(brawler_start_x + 2)
                 trophy_info_start_y = int(brawler_start_y - neg_offset + 4)
-                rank_family = (player.trophies - 1) // 3 + 1
-                rank_digit = (player.trophies - 1) % 3 + 1
+                rank_family = (player['trophies'] - 1) // 3 + 1
+                rank_digit = (player['trophies'] - 1) % 3 + 1
                 rank_icon = RANK_ICONS_NO_DIGITS[rank_family]
                 icon_max_height = trophy_bg_h - 6
                 resized_icon = rank_icon.resize((int(rank_icon.width * icon_max_height / rank_icon.height), icon_max_height))
@@ -260,7 +261,7 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
                     start_xy=(trophy_info_start_x, trophy_info_start_y)
                 )
 
-            elif matches[rel_i][0].game_type == 'ranked':
+            elif matches[rel_i][0]['game_type'] == 'ranked':
                 # trophy bg
                 neg_offset = 10
                 trophy_bg_h = 30
@@ -281,7 +282,7 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
                     canvas,
                     draw,
                     resized_icon,
-                    f'{player.trophies}',
+                    f'{player["trophies"]}',
                     inter_black20,
                     3,
                     fill='#EFC23D',

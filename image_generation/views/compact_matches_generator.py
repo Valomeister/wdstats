@@ -2,12 +2,12 @@ import asyncio
 import math
 from datetime import datetime, UTC
 
-from image_generation.assets.fonts import inter30, inter36
+from image_generation.assets.fonts import inter30, inter36, lilita36, lilita30, lilita24
 from image_generation.assets.images import PARTIALLY_ROUNDED_BRAWLER_ICONS, DARK_BG, GAME_MODE_ICONS, MODE_PLACEHOLDER, \
-    RANK_ICONS_NO_DIGITS, TROPHY
+    RANK_ICONS_NO_DIGITS, TROPHY, CHALLENGE_ICON, CHAMPIONSHIP_ICON, TOURNAMENT_ICON
 from image_generation.image_utils import normalize_name, format_datetime_diff, draw_text_align_to_side, \
     paste_icon_and_text, gradient_rect
-from image_generation.layout_config import lp, result_colors
+from image_generation.layout_config import lp, result_colors, rank_family_colors
 from image_generation.views.template_generator import get_template
 from services.stats_service import StatsService
 
@@ -50,11 +50,12 @@ async def gen_compact_matches_img(stats, matches, total_matches_count, player_ni
             row = rel_i // ROW_CAPACITY - 1
         col = rel_i % ROW_CAPACITY
 
-        card_center_x = offset_x + lp.margin + col * (card_width + inner_margin) + card_width / 2
+        card_center_x = round(offset_x + lp.margin + col * (card_width + inner_margin) + card_width / 2)
         card_start_x = card_center_x - card_width / 2
         card_end_x = card_start_x + card_width
         card_start_y = offset_y + row * (card_height + inner_margin)
         card_end_y = card_start_y + card_height
+        card_center_y = round((card_start_y + card_end_y) / 2)
 
         # badge bg
         badge_start_x = card_start_x
@@ -70,7 +71,7 @@ async def gen_compact_matches_img(stats, matches, total_matches_count, player_ni
 
         # game_mode
         print(len(matches), rel_i)
-        game_mode = matches[rel_i][1]
+        game_mode = matches[rel_i]['game_mode']
         normalized_mode_name = normalize_name(game_mode)
         game_mode_icon = GAME_MODE_ICONS.get(normalized_mode_name, MODE_PLACEHOLDER)
         # game_mode_icon = random.choice(list(GAME_MODE_ICONS.values()))
@@ -80,7 +81,7 @@ async def gen_compact_matches_img(stats, matches, total_matches_count, player_ni
         canvas.paste(game_mode_icon, (game_mode_icon_start_x, game_mode_icon_start_y), game_mode_icon)
 
         # brawler
-        normalized_name = normalize_name(matches[rel_i][6])
+        normalized_name = normalize_name(matches[rel_i]['brawler'])
         placeholder_icon = PARTIALLY_ROUNDED_BRAWLER_ICONS['placeholder']
         brawler_icon = PARTIALLY_ROUNDED_BRAWLER_ICONS.get(normalized_name, placeholder_icon)
         brawler_start_x = int(card_start_x)
@@ -90,8 +91,8 @@ async def gen_compact_matches_img(stats, matches, total_matches_count, player_ni
         canvas.paste(brawler_icon, (brawler_start_x, brawler_start_y), brawler_icon)
 
         # result color
+        trophy_change = matches[rel_i]['trophy_change']
         if game_mode in ("soloShowdown", "duoShowdown", "trioShowdown"):
-            trophy_change = matches[rel_i][7]
             if trophy_change is not None and trophy_change > 0:
                 result = 1
             elif trophy_change is not None and trophy_change < 0:
@@ -99,7 +100,7 @@ async def gen_compact_matches_img(stats, matches, total_matches_count, player_ni
             else:
                 result = 0
         else:
-            result = matches[rel_i][4]
+            result = matches[rel_i]['relative_result']
         draw.rounded_rectangle(
             (brawler_end_x, brawler_start_y, card_end_x, card_end_y),
             fill=result_colors[result],
@@ -115,7 +116,8 @@ async def gen_compact_matches_img(stats, matches, total_matches_count, player_ni
 
         # time ago
         now = datetime.now(UTC).replace(tzinfo=None)
-        time_diff = format_datetime_diff(now, matches[rel_i][0])
+        then = datetime.fromisoformat(matches[rel_i]['match_time'])
+        time_diff = format_datetime_diff(now, then)
         draw_text_align_to_side(
             draw,
             (
@@ -125,7 +127,7 @@ async def gen_compact_matches_img(stats, matches, total_matches_count, player_ni
                 badge_start_y + badge_height / 2
             ),
             time_diff,
-            inter30,
+            lilita30,
             4,
             'white',
             side='right'
@@ -139,9 +141,9 @@ async def gen_compact_matches_img(stats, matches, total_matches_count, player_ni
             width=border_width
         )
 
-        if matches[rel_i][2] == 'soloRanked':
-            rank_family = (matches[rel_i][5] - 1) // 3 + 1
-            rank_digit = (matches[rel_i][5] - 1) % 3 + 1
+        if matches[rel_i]['game_type'] == 'soloRanked':
+            rank_family = (matches[rel_i]['trophies'] - 1) // 3 + 1
+            rank_digit = (matches[rel_i]['trophies'] - 1) % 3 + 1
             rank_icon = RANK_ICONS_NO_DIGITS[rank_family]
             trophy_info_center_x = (card_end_x + card_start_x + icon_w) / 2
             trophy_info_center_y = (card_end_y + card_start_y + badge_height) / 2
@@ -150,27 +152,76 @@ async def gen_compact_matches_img(stats, matches, total_matches_count, player_ni
                 draw,
                 rank_icon,
                 'I' * rank_digit,
-                inter36,
+                lilita36,
                 trophy_icon_text_gap,
+                fill='white',
                 center_xy=(trophy_info_center_x, trophy_info_center_y)
             )
 
 
-        elif matches[rel_i][2] == 'ranked':
+        elif matches[rel_i]['game_type'] == 'ranked':
             trophy_info_center_x = (card_end_x + card_start_x + icon_w) / 2
             trophy_info_center_y = (card_end_y + card_start_y + badge_height) / 2
             paste_icon_and_text(
                 canvas,
                 draw,
                 TROPHY,
-                str(matches[rel_i][5]),
-                inter36,
+                str(matches[rel_i]['trophies']),
+                lilita36,
                 trophy_icon_text_gap,
+                fill='#EFC23D',
                 center_xy=(trophy_info_center_x, trophy_info_center_y)
             )
+            # trophy change
+            if trophy_change:
+                trophy_change_start_y = badge_start_y + 28
+                trophy_change_start_x = badge_start_x + 106
+                trophy_change_text = ('+' if trophy_change > 0 else '') + str(trophy_change)
 
+                icon_max_height = 24
+                resized_icon = TROPHY.resize((round(TROPHY.width * icon_max_height / TROPHY.height), icon_max_height))
+
+                paste_icon_and_text(
+                    canvas, draw,
+                    resized_icon,
+                    trophy_change_text,
+                    lilita24,
+                    3,
+                    fill='#EFC23D',
+                    stroke_width=2,
+                    start_xy=(trophy_change_start_x, trophy_change_start_y),
+                    inverted=True
+                )
+
+        elif matches[rel_i]['game_type'] == 'challenge':
+            canvas.paste(
+                CHALLENGE_ICON,
+                (
+                    round((brawler_end_x + card_end_x) / 2 - CHALLENGE_ICON.width / 2),
+                    round((badge_end_y + card_end_y) / 2 - CHALLENGE_ICON.height / 2) - 4,
+                ),
+                CHALLENGE_ICON
+            )
+        elif matches[rel_i]['game_type'] == 'championshipChallenge':
+            canvas.paste(
+                CHAMPIONSHIP_ICON,
+                (
+                    round((brawler_end_x + card_end_x) / 2 - CHAMPIONSHIP_ICON.width / 2),
+                    round((badge_end_y + card_end_y) / 2 - CHAMPIONSHIP_ICON.height / 2),
+                ),
+                CHAMPIONSHIP_ICON
+            )
+        elif matches[rel_i]['game_type'] == 'tournament':
+            canvas.paste(
+                TOURNAMENT_ICON,
+                (
+                    round((brawler_end_x + card_end_x) / 2 - TOURNAMENT_ICON.width / 2),
+                    round((badge_end_y + card_end_y) / 2 - TOURNAMENT_ICON.height / 2),
+                ),
+                TOURNAMENT_ICON
+            )
         else:
-            print('undefined', matches[rel_i][2])
+            print('undefined', matches[rel_i]['game_type'])
 
     if page * (ROW_CAPACITY * COL_CAPACITY) < total_matches_count:
         grad = gradient_rect((area_outer_width, grad_height))

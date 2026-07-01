@@ -53,7 +53,7 @@ async def render_unicode(
             const outlineWidth = {outline_width};
             const outlineColor = {json.dumps(outline_color)};
 
-            ctx.font = `900 ${{fontSize}}px Calibri`;
+            ctx.font = `900 ${{fontSize}}px Carlito`;
 
             const metrics = ctx.measureText(text);
 
@@ -69,7 +69,7 @@ async def render_unicode(
             canvas.width = Math.ceil(textWidth + padding * 2);
             canvas.height = Math.ceil(textHeight + padding * 2);
 
-            ctx.font = `900 ${{fontSize}}px Calibri`;
+            ctx.font = `900 ${{fontSize}}px Carlito`;
             ctx.textBaseline = "middle";
 
 

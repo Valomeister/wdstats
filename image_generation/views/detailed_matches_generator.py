@@ -147,7 +147,7 @@ async def gen_detailed_matches_img(stats, matches, total_matches_count, tag, pla
         )
 
         # trophy change
-        if trophy_change:
+        if trophy_change and matches[rel_i][0]['game_type'] == 'ranked':
             trophy_change_center_y = round(badge_center_y) + 2
             trophy_change_center_x = round(badge_start_x + (badge_end_x - badge_start_x) * 0.75)
             trophy_change_text = ('+' if trophy_change > 0 else '') + str(trophy_change)

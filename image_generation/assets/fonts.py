@@ -25,6 +25,11 @@ inter36 = ImageFont.truetype(
     "image_generation/assets/fonts/Inter_18pt-Bold.ttf",
     36
 )
+lilita36 = ImageFont.truetype(
+    "image_generation/assets/fonts/LilitaOne-Regular.ttf",
+    36
+)
+
 
 inter30 = ImageFont.truetype(
     "image_generation/assets/fonts/Inter_18pt-Bold.ttf",
@@ -44,6 +49,11 @@ lilita30 = ImageFont.truetype(
 inter22 = ImageFont.truetype(
     "image_generation/assets/fonts/Inter_18pt-Bold.ttf",
     22
+)
+
+lilita24 = ImageFont.truetype(
+    "image_generation/assets/fonts/LilitaOne-Regular.ttf",
+    24
 )
 
 inter_black20 = ImageFont.truetype(

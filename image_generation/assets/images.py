@@ -2,6 +2,11 @@ from PIL import Image
 
 from image_generation.image_utils import round_img, load_ranked_ranks, load_game_mode_icons, load_brawler_icons
 
+
+def resize_img_to_height(img, target_h):
+    return img.resize((round(img.width * (target_h / img.height)), target_h))
+
+
 CANVAS = Image.open('image_generation/assets/images/bg.jpg')
 BRAWLER_ICONS = load_brawler_icons('image_generation/assets/images/brawler_icons', (70, 70))
 SMALLER_BRAWLER_ICONS = {
@@ -34,3 +39,9 @@ TROPHY = Image.open('image_generation/assets/images/trophy.png').convert('RGBA')
 MODE_PLACEHOLDER = (Image.open('image_generation/assets/images/mode_icons/placeholder.png')
                     .convert('RGBA')
                     .resize((60, 60)))
+
+CHAMPIONSHIP_ICON = resize_img_to_height(Image.open('image_generation/assets/images/championship_challenge.webp').convert('RGBA'), 70)
+CHALLENGE_ICON = resize_img_to_height(Image.open('image_generation/assets/images/challenge.webp').convert('RGBA'), 60)
+TOURNAMENT_ICON = resize_img_to_height(Image.open('image_generation/assets/images/tournament.png').convert('RGBA'), 60)
+
+

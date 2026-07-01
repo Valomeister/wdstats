@@ -157,9 +157,48 @@ class StatsService:
 
     @staticmethod
     async def get_matches(tag, limit, offset):
+        keys = [
+            f"compact_matches:{tag}:{i}"
+            for i in range(offset, offset + limit)
+        ]
+
+        cached_matches = await redis_client.mget(keys)
+
+        if all(cached_matches):
+            print("returning cache for get_matches()")
+
+            return [
+                json.loads(item)
+                for item in cached_matches
+            ]
+        print("returning from db for get_matches()")
+
         async with SessionLocal() as session:
             repo = StatsRepository(session)
-            return await repo.get_matches(tag, limit=limit, offset=offset)
+            padding = 40
+            padded_offset = max(0, offset - padding)
+            padded_limit = padding * 2 + 1
+
+            matches = await repo.get_matches(tag, limit=padded_limit, offset=padded_offset)
+            matches = [serialize_match(match) for match in matches]
+
+            pipe = redis_client.pipeline()
+
+            for i, match in enumerate(matches):
+                key = (
+                    f"compact_matches:{tag}:{padded_offset + i}"
+                )
+
+                await pipe.set(
+                    key,
+                    json.dumps(match),
+                    ex=CACHE_TTL
+                )
+
+            await pipe.execute()
+
+            return matches
+
 
     @staticmethod
     async def count_matches(tag):
@@ -209,7 +248,7 @@ class StatsService:
             padded_limit = padding * 2 + 1
 
             matches = await repo.get_detailed_matches(tag, limit=padded_limit, offset=padded_offset)
-            matches = [serialize_match(match) for match in matches]
+            matches = [serialize_detailed_match(match) for match in matches]
 
             pipe = redis_client.pipeline()
 
@@ -229,7 +268,7 @@ class StatsService:
             return matches
 
 
-def serialize_match(row):
+def serialize_detailed_match(row):
     match, *extra = row
 
     return [
@@ -255,3 +294,15 @@ def serialize_match(row):
         },
         *extra
     ]
+
+def serialize_match(row):
+    return {
+        "match_time": row[0].isoformat(),
+        "game_mode": row[1],
+        "game_type": row[2],
+        "is_star_player": row[3],
+        "relative_result": row[4],
+        "trophies": row[5],
+        "brawler": row[6],
+        "trophy_change": row[7],
+    }

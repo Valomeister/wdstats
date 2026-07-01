@@ -40,6 +40,17 @@ gamemodes_colors = {
     'trioShowdown': '#81D621',
 }
 
+rank_family_colors = {
+    1: '#F59833',  # bronze
+    2: '#B1BAFB',  # silver
+    3: '#FFD01E',  # gold
+    4: '#00F7FE',  # diamond
+    5: '#CC19E6',  # mythic
+    6: '#FA555E',  # legendary
+    7: '#FFC421',  # masters
+    8: '#FFFFFF',  # pro
+}
+
 result_colors = {
     1: '#67B000',
     0: '#F3D600',

@@ -76,7 +76,7 @@ def draw_text_align_to_side(draw, box, text, font, stroke_width, fill, side, cen
         fill=fill,
         font=font,
         stroke_width=stroke_width,
-        stroke_fill="black"
+        stroke_fill="black",
     )
 
     return text_w, text_h
@@ -388,7 +388,7 @@ def format_datetime_diff(dt1: datetime, dt2: datetime) -> str:
 
     return " ".join(parts[:2])
 
-def paste_icon_and_text(canvas, draw, icon, text, font, gap, center_xy=None, start_xy=None):
+def paste_icon_and_text(canvas, draw, icon, text, font, gap, fill='white', stroke_width=4, center_xy=None, start_xy=None, inverted=False):
     if center_xy is not None:
         center_x, center_y = center_xy
         trophies_text_w, trophies_text_h = get_text_size(draw, text, font)
@@ -410,14 +410,18 @@ def paste_icon_and_text(canvas, draw, icon, text, font, gap, center_xy=None, sta
     else:
         raise
 
+    if inverted:
+        text_start_x = round(trophy_info_start_x)
+        trophy_icon_start_x = round(trophy_info_start_x + trophies_text_w + gap)
+
     canvas.paste(icon, (trophy_icon_start_x, trophy_icon_start_y), icon)
     draw_text_align_to_side(
         draw,
         (text_start_x, text_center_y, text_start_x, text_center_y),
         text=text,
         font=font,
-        stroke_width=4,
-        fill='white',
+        stroke_width=stroke_width,
+        fill=fill,
         side='left'
     )
 

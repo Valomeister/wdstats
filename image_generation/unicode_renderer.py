@@ -53,7 +53,7 @@ async def render_unicode(
             const outlineWidth = {outline_width};
             const outlineColor = {json.dumps(outline_color)};
 
-            ctx.font = `700 ${{fontSize}}px Arial`;
+            ctx.font = `900 ${{fontSize}}px Calibri`;
 
             const metrics = ctx.measureText(text);
 
@@ -69,7 +69,7 @@ async def render_unicode(
             canvas.width = Math.ceil(textWidth + padding * 2);
             canvas.height = Math.ceil(textHeight + padding * 2);
 
-            ctx.font = `700 ${{fontSize}}px Arial`;
+            ctx.font = `900 ${{fontSize}}px Calibri`;
             ctx.textBaseline = "middle";
 
 
@@ -77,6 +77,7 @@ async def render_unicode(
             const y = canvas.height / 2;
 
             if (outlineWidth > 0) {{
+                ctx.lineJoin = "round";
                 ctx.lineWidth = outlineWidth;
                 ctx.strokeStyle = outlineColor;
                 ctx.strokeText(text, x, y);

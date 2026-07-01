@@ -377,6 +377,7 @@ class StatsRepository:
                     MatchPlayer.team,
                     MatchPlayer.player_nickname,
                     MatchPlayer.trophies,
+                    MatchPlayer.trophy_change
                 )
             )
             .order_by(
